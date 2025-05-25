@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: crecepyme-app
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - ./:/var/www
+    networks:
+      - crecepyme-network
+    depends_on:
+      - db
+      - redis
+
+  nginx:
+    image: nginx:alpine
+    container_name: crecepyme-nginx
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - ./:/var/www
+      - ./docker/nginx:/etc/nginx/conf.d
+    networks:
+      - crecepyme-network
+
+  db:
+    image: postgres:15
+    container_name: crecepyme-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: crecepyme
+      POSTGRES_USER: crecepyme
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - crecepyme-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: crecepyme-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - crecepyme-network
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: crecepyme-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+    ports:
+      - "9200:9200"
+    networks:
+      - crecepyme-network
+
+networks:
+  crecepyme-network:
+    driver: bridge
+
+volumes:
+  dbdata:
+    driver: local
