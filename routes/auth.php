@@ -15,23 +15,27 @@ Route::middleware('guest')->group(function () {
     Route::get('register', [RegisteredUserController::class, 'create'])
         ->name('register');
 
-    Route::post('register', [RegisteredUserController::class, 'store']);
+    Route::post('register', [RegisteredUserController::class, 'store'])
+        ->middleware('rate_limit:auth');
 
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
 
-    Route::post('login', [AuthenticatedSessionController::class, 'store']);
+    Route::post('login', [AuthenticatedSessionController::class, 'store'])
+        ->middleware('rate_limit:auth');
 
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');
 
     Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])
+        ->middleware('rate_limit:password-reset')
         ->name('password.email');
 
     Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])
         ->name('password.reset');
 
     Route::post('reset-password', [NewPasswordController::class, 'store'])
+        ->middleware('rate_limit:password-reset')
         ->name('password.store');
 });
 
@@ -56,4 +60,20 @@ Route::middleware('auth')->group(function () {
 
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])
         ->name('logout');
+
+    // Two-Factor Authentication routes
+    Route::prefix('two-factor')->name('two-factor.')->group(function () {
+        Route::get('setup', [\App\Http\Controllers\Auth\TwoFactorController::class, 'setup'])
+            ->name('setup');
+        Route::post('enable', [\App\Http\Controllers\Auth\TwoFactorController::class, 'enable'])
+            ->name('enable');
+        Route::get('verify', [\App\Http\Controllers\Auth\TwoFactorController::class, 'verify'])
+            ->name('verify');
+        Route::post('check', [\App\Http\Controllers\Auth\TwoFactorController::class, 'check'])
+            ->name('check');
+        Route::post('disable', [\App\Http\Controllers\Auth\TwoFactorController::class, 'disable'])
+            ->name('disable');
+        Route::get('recovery-codes', [\App\Http\Controllers\Auth\TwoFactorController::class, 'recoveryCodes'])
+            ->name('recovery-codes');
+    });
 });

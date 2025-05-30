@@ -9,20 +9,30 @@ use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use phpseclib3\Crypt\RSA;
-use phpseclib3\File\X509;
-use RobRichards\XMLSecLibs\XMLSecurityDSig;
-use RobRichards\XMLSecLibs\XMLSecurityKey;
-
 class DTEService
 {
     private XMLGeneratorService $xmlGenerator;
-    private string $envioUrl = 'https://maullin.sii.cl/cgi_dte/UPL/DTEUpload';
-    private string $consultaUrl = 'https://maullin.sii.cl/cgi_dte/RTC/RTCAnotacion.cgi';
+    private XMLSignerService $xmlSigner;
+    private XSDValidatorService $xsdValidator;
+    private ResponseProcessorService $responseProcessor;
+    private FolioManagerService $folioManager;
+    private array $endpoints;
+    private string $environment;
     
-    public function __construct(XMLGeneratorService $xmlGenerator)
-    {
+    public function __construct(
+        XMLGeneratorService $xmlGenerator, 
+        XMLSignerService $xmlSigner,
+        XSDValidatorService $xsdValidator,
+        ResponseProcessorService $responseProcessor,
+        FolioManagerService $folioManager
+    ) {
         $this->xmlGenerator = $xmlGenerator;
+        $this->xmlSigner = $xmlSigner;
+        $this->xsdValidator = $xsdValidator;
+        $this->responseProcessor = $responseProcessor;
+        $this->folioManager = $folioManager;
+        $this->endpoints = config('sii.endpoints');
+        $this->environment = config('sii.environment', 'certification');
     }
 
     /**
@@ -37,6 +47,13 @@ class DTEService
     {
         try {
             DB::beginTransaction();
+
+            // Assign folio if not already assigned
+            if (!$document->folio) {
+                $folio = $this->folioManager->assignFolioToDocument($document, $tenant);
+            } else {
+                $folio = $document->folio;
+            }
 
             // Prepare DTE data
             $dteData = $this->prepareDTEData($document, $tenant);
@@ -94,20 +111,21 @@ class DTEService
             $envioDTE = $this->createEnvioDTE([$document]);
             
             // Send to SII
-            $response = $this->sendToSII($envioDTE, $token);
+            $startTime = microtime(true);
+            $response = $this->sendToSII($envioDTE, $token, $document->tenant);
+            $responseTime = (microtime(true) - $startTime) * 1000;
             
-            // Update document status
-            $document->update([
-                'sii_status' => 'sent',
-                'sent_at' => Carbon::now(),
-                'sii_track_id' => $response['trackingId'] ?? null,
+            // Process the response
+            $processedResponse = $this->responseProcessor->processUploadResponse($response, $document);
+            
+            // Log the event
+            $this->logSiiEvent($document, 'upload', [
+                'response' => $response,
+                'response_time' => $responseTime,
+                'track_id' => $processedResponse['track_id'] ?? null,
             ]);
 
-            return [
-                'success' => true,
-                'tracking_id' => $response['trackingId'] ?? null,
-                'response' => $response,
-            ];
+            return $processedResponse;
         } catch (Exception $e) {
             Log::error('Error sending DTE', [
                 'document_id' => $document->id,
@@ -129,29 +147,46 @@ class DTEService
     public function checkDTEStatus(string $trackingId, string $token, Tenant $tenant): array
     {
         try {
+            $startTime = microtime(true);
+            
             $response = Http::withHeaders([
                 'Cookie' => 'TOKEN=' . $token,
-            ])->asForm()->post($this->consultaUrl, [
+            ])->asForm()->post($this->getEndpointUrl('dte_status', $tenant), [
                 'TRACKID' => $trackingId,
                 'RUT_EMISOR' => $tenant->rut,
             ]);
+
+            $responseTime = (microtime(true) - $startTime) * 1000;
 
             if (!$response->successful()) {
                 throw new Exception('Failed to check DTE status: ' . $response->status());
             }
 
-            $xml = simplexml_load_string($response->body());
+            $xmlResponse = $response->body();
             
-            if ($xml === false) {
-                throw new Exception('Invalid XML response from SII');
-            }
+            // Process the status response
+            $processedResponse = $this->responseProcessor->processStatusResponse($xmlResponse, $trackingId);
+            
+            // Log the event
+            $this->logSiiEvent(null, 'status_check', [
+                'track_id' => $trackingId,
+                'response' => $processedResponse,
+                'response_time' => $responseTime,
+            ], $tenant);
 
-            return $this->parseDTEStatusResponse($xml);
+            return $processedResponse;
         } catch (Exception $e) {
             Log::error('Error checking DTE status', [
                 'tracking_id' => $trackingId,
                 'error' => $e->getMessage()
             ]);
+            
+            // Log error event
+            $this->logSiiEvent(null, 'error', [
+                'track_id' => $trackingId,
+                'error' => $e->getMessage(),
+            ], $tenant);
+            
             throw new Exception('Failed to check DTE status: ' . $e->getMessage());
         }
     }
@@ -255,43 +290,22 @@ class DTEService
      */
     private function signXML(string $xml, Tenant $tenant): string
     {
-        $certificatePath = storage_path('app/sii/certificates/' . $tenant->id . '/cert.pem');
-        $privateKeyPath = storage_path('app/sii/certificates/' . $tenant->id . '/key.pem');
+        // Set tenant-specific certificate paths
+        $certificatePath = storage_path('app/sii/certificates/' . $tenant->id . '/certificate.pem');
+        $privateKeyPath = storage_path('app/sii/certificates/' . $tenant->id . '/private_key.pem');
         
-        if (!file_exists($certificatePath) || !file_exists($privateKeyPath)) {
-            throw new Exception('Certificate files not found');
-        }
-
-        // Sign the XML (simplified version - actual implementation would be more complex)
-        $doc = new \DOMDocument();
-        $doc->loadXML($xml);
+        // Temporarily update the signer with tenant-specific paths
+        $reflectionClass = new \ReflectionClass($this->xmlSigner);
+        $certProperty = $reflectionClass->getProperty('certificatePath');
+        $certProperty->setAccessible(true);
+        $certProperty->setValue($this->xmlSigner, $certificatePath);
         
-        // Create signature
-        $objDSig = new XMLSecurityDSig();
-        $objDSig->setCanonicalMethod(XMLSecurityDSig::EXC_C14N);
-        $objDSig->addReference(
-            $doc,
-            XMLSecurityDSig::SHA1,
-            ['http://www.w3.org/2000/09/xmldsig#enveloped-signature']
-        );
-
-        // Create key
-        $objKey = new XMLSecurityKey(
-            XMLSecurityKey::RSA_SHA1,
-            ['type' => 'private']
-        );
-        $objKey->loadKey($privateKeyPath, true);
-
-        // Sign
-        $objDSig->sign($objKey);
+        $keyProperty = $reflectionClass->getProperty('privateKeyPath');
+        $keyProperty->setAccessible(true);
+        $keyProperty->setValue($this->xmlSigner, $privateKeyPath);
         
-        // Add certificate
-        $objDSig->add509Cert(file_get_contents($certificatePath));
-        
-        // Append signature
-        $objDSig->appendSignature($doc->documentElement);
-
-        return $doc->saveXML();
+        // Use the XMLSignerService to sign the document
+        return $this->xmlSigner->signXML($xml);
     }
 
     /**
@@ -302,13 +316,25 @@ class DTEService
      */
     private function validateDTE(string $xml): void
     {
-        // Basic validation - implement full SII validation rules
+        // Basic XML validation
         $doc = new \DOMDocument();
         if (!$doc->loadXML($xml)) {
             throw new Exception('Invalid XML document');
         }
 
-        // Additional validations can be added here
+        // XSD validation if schemas are available
+        if ($this->xsdValidator->schemasExist()) {
+            $validation = $this->xsdValidator->validateDTE($xml);
+            if (!$validation['valid']) {
+                $errorMessages = [];
+                foreach ($validation['errors'] as $error) {
+                    $errorMessages[] = "Line {$error['line']}: {$error['message']}";
+                }
+                throw new Exception('DTE validation failed: ' . implode('; ', $errorMessages));
+            }
+        } else {
+            Log::warning('XSD schemas not available for validation');
+        }
     }
 
     /**
@@ -358,10 +384,11 @@ class DTEService
      *
      * @param string $xml
      * @param string $token
+     * @param Tenant $tenant
      * @return array
      * @throws Exception
      */
-    private function sendToSII(string $xml, string $token): array
+    private function sendToSII(string $xml, string $token, Tenant $tenant): array
     {
         $response = Http::withHeaders([
             'Cookie' => 'TOKEN=' . $token,
@@ -369,7 +396,7 @@ class DTEService
             'archivo',
             $xml,
             'envio_' . uniqid() . '.xml'
-        )->post($this->envioUrl);
+        )->post($this->getEndpointUrl('dte_upload', $tenant));
 
         if (!$response->successful()) {
             throw new Exception('Failed to send to SII: ' . $response->status());
@@ -385,35 +412,37 @@ class DTEService
     }
 
     /**
-     * Parse DTE status response
+     * Log SII event
      *
-     * @param \SimpleXMLElement $xml
-     * @return array
+     * @param TaxDocument|null $document
+     * @param string $eventType
+     * @param array $data
+     * @param Tenant|null $tenant
      */
-    private function parseDTEStatusResponse(\SimpleXMLElement $xml): array
+    private function logSiiEvent(?TaxDocument $document, string $eventType, array $data, ?Tenant $tenant = null): void
     {
-        $namespaces = $xml->getNamespaces(true);
-        $xml->registerXPathNamespace('SII', $namespaces['SII'] ?? 'http://www.sii.cl/XMLSchema');
-
-        $status = [
-            'estado' => (string) $xml->xpath('//ESTADO')[0] ?? 'unknown',
-            'glosa' => (string) $xml->xpath('//GLOSA')[0] ?? '',
-            'aceptados' => (int) $xml->xpath('//ACEPTADOS')[0] ?? 0,
-            'rechazados' => (int) $xml->xpath('//RECHAZADOS')[0] ?? 0,
-            'reparos' => (int) $xml->xpath('//REPAROS')[0] ?? 0,
-            'detalles' => [],
-        ];
-
-        // Parse detail errors if any
-        $errores = $xml->xpath('//ERROR');
-        foreach ($errores as $error) {
-            $status['detalles'][] = [
-                'codigo' => (string) $error->attributes()->CODIGO ?? '',
-                'descripcion' => (string) $error ?? '',
+        try {
+            $logData = [
+                'tenant_id' => $tenant ? $tenant->id : ($document ? $document->tenant_id : null),
+                'tax_document_id' => $document?->id,
+                'event_type' => $eventType,
+                'track_id' => $data['track_id'] ?? null,
+                'status' => $data['status'] ?? null,
+                'request_data' => $data['request'] ?? null,
+                'response_data' => $data['response'] ?? null,
+                'error_message' => $data['error'] ?? null,
+                'ip_address' => request()->ip(),
+                'user_agent' => request()->userAgent(),
+                'response_time' => $data['response_time'] ?? null,
             ];
-        }
 
-        return $status;
+            \App\Models\SiiEventLog::create($logData);
+        } catch (Exception $e) {
+            Log::error('Failed to log SII event', [
+                'event_type' => $eventType,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
@@ -431,5 +460,18 @@ class DTEService
         
         $document->load(['customer', 'items.product', 'tenant']);
         return route('invoices.download', $document);
+    }
+    
+    /**
+     * Get endpoint URL based on tenant environment
+     *
+     * @param string $endpoint
+     * @param Tenant $tenant
+     * @return string
+     */
+    private function getEndpointUrl(string $endpoint, Tenant $tenant): string
+    {
+        $environment = $tenant->sii_environment ?? $this->environment;
+        return $this->endpoints[$environment][$endpoint];
     }
 }

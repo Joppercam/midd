@@ -7,13 +7,15 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
+use App\Traits\Auditable;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable, HasApiTokens, HasRoles;
+    use HasFactory, Notifiable, HasApiTokens, HasRoles, Auditable;
 
     /**
      * The attributes that are mass assignable.
@@ -28,6 +30,11 @@ class User extends Authenticatable
         'role',
         'permissions',
         'last_login_at',
+        'two_factor_enabled',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
+        'two_factor_enabled_at',
+        'force_two_factor',
     ];
 
     /**
@@ -38,6 +45,8 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
 
     /**
@@ -52,6 +61,10 @@ class User extends Authenticatable
             'password' => 'hashed',
             'permissions' => 'array',
             'last_login_at' => 'datetime',
+            'two_factor_enabled' => 'boolean',
+            'two_factor_recovery_codes' => 'array',
+            'two_factor_enabled_at' => 'datetime',
+            'force_two_factor' => 'boolean',
         ];
     }
 
@@ -68,5 +81,25 @@ class User extends Authenticatable
     public function hasPermission(string $permission): bool
     {
         return in_array($permission, $this->permissions ?? []);
+    }
+
+    public function activities(): HasMany
+    {
+        return $this->hasMany(Activity::class);
+    }
+
+    public function customers(): HasMany
+    {
+        return $this->hasMany(Customer::class, 'created_by');
+    }
+
+    public function taxDocuments(): HasMany
+    {
+        return $this->hasMany(TaxDocument::class, 'created_by');
+    }
+
+    public function logActivity(string $type, string $description, $subject = null, array $properties = []): Activity
+    {
+        return Activity::log($type, $description, $subject, $properties);
     }
 }

@@ -10,14 +10,16 @@ use phpseclib3\File\X509;
 
 class SIIAuthService
 {
-    private string $authUrl = 'https://maullin.sii.cl/cgi_AUT2000/CAutInicio.cgi';
-    private string $tokenUrl = 'https://maullin.sii.cl/cgi_AUT2000/CAutAvanzada.cgi';
+    private array $endpoints;
+    private string $environment;
     private ?string $certificatePath = null;
     private ?string $privateKeyPath = null;
     private ?string $privateKeyPassword = null;
 
     public function __construct()
     {
+        $this->environment = config('sii.environment', 'certification');
+        $this->endpoints = config('sii.endpoints');
         $this->certificatePath = config('sii.certificate_path');
         $this->privateKeyPath = config('sii.private_key_path');
         $this->privateKeyPassword = config('sii.private_key_password');
@@ -26,20 +28,23 @@ class SIIAuthService
     /**
      * Get authentication token from SII
      *
+     * @param string|null $environment Override environment
      * @return string
      * @throws Exception
      */
-    public function getAuthToken(): string
+    public function getAuthToken(?string $environment = null): string
     {
         try {
+            $env = $environment ?? $this->environment;
+            
             // Step 1: Get seed from SII
-            $seed = $this->getSeed();
+            $seed = $this->getSeed($env);
             
             // Step 2: Sign the seed with digital certificate
             $signedSeed = $this->signSeed($seed);
             
             // Step 3: Get token using signed seed
-            $token = $this->getToken($signedSeed);
+            $token = $this->getToken($signedSeed, $env);
             
             return $token;
         } catch (Exception $e) {
@@ -54,12 +59,14 @@ class SIIAuthService
     /**
      * Get seed from SII
      *
+     * @param string $environment
      * @return string
      * @throws Exception
      */
-    private function getSeed(): string
+    private function getSeed(string $environment): string
     {
-        $response = Http::timeout(30)->get($this->authUrl);
+        $authUrl = $this->endpoints[$environment]['auth_seed'];
+        $response = Http::timeout(30)->get($authUrl);
         
         if (!$response->successful()) {
             throw new Exception('Failed to get seed from SII: ' . $response->status());
@@ -213,14 +220,16 @@ class SIIAuthService
      * Get token using signed seed
      *
      * @param string $signedSeed
+     * @param string $environment
      * @return string
      * @throws Exception
      */
-    private function getToken(string $signedSeed): string
+    private function getToken(string $signedSeed, string $environment): string
     {
+        $tokenUrl = $this->endpoints[$environment]['auth_token'];
         $response = Http::timeout(30)
             ->asForm()
-            ->post($this->tokenUrl, [
+            ->post($tokenUrl, [
                 'pszXml' => $signedSeed
             ]);
         

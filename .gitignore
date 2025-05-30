@@ -1,3 +1,4 @@
+# Laravel
 /.phpunit.cache
 /node_modules
 /public/build
@@ -21,3 +22,48 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# Database
+database.sqlite
+*.sqlite
+*.sqlite-journal
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Certificates
+/storage/app/sii/certificates/
+/storage/app/sii/certificados/
+*.p12
+*.pem
+*.key
+*.crt
+
+# Backups
+/storage/app/backups/
+/storage/app/private/
+
+# Logs específicos
+/storage/logs/*.log
+security-*.log
+
+# Debugbar
+/storage/debugbar/
+
+# API Documentation  
+/storage/api-docs/
+
+# Package lock (mantener uno solo)
+package-lock.json
+
+# Compiled assets
+/public/vendor/
+
+# macOS
+.AppleDouble
+.LSOverride
+
+# Cache adicional
+/bootstrap/cache/*
+!/bootstrap/cache/.gitignore

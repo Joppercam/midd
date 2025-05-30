@@ -12,6 +12,12 @@ class XMLGeneratorService
 {
     private DOMDocument $doc;
     private string $siiNamespace = 'http://www.sii.cl/SiiDte';
+    private XSDValidatorService $validator;
+
+    public function __construct(XSDValidatorService $validator)
+    {
+        $this->validator = $validator;
+    }
 
     /**
      * Generate DTE XML document
@@ -41,7 +47,17 @@ class XMLGeneratorService
             $signature = $this->createSignaturePlaceholder();
             $dte->appendChild($signature);
 
-            return $this->doc->saveXML();
+            $xml = $this->doc->saveXML();
+
+            // Validate generated XML against XSD if validator is available
+            if ($this->validator->schemasExist()) {
+                $validation = $this->validator->validateDTE($xml);
+                if (!$validation['valid']) {
+                    Log::warning('Generated DTE XML does not validate against XSD', $validation);
+                }
+            }
+
+            return $xml;
         } catch (Exception $e) {
             Log::error('Error generating DTE XML', [
                 'error' => $e->getMessage(),
@@ -82,7 +98,17 @@ class XMLGeneratorService
             $signature = $this->createSignaturePlaceholder();
             $envioDte->appendChild($signature);
 
-            return $this->doc->saveXML();
+            $xml = $this->doc->saveXML();
+
+            // Validate generated XML against XSD if validator is available
+            if ($this->validator->schemasExist()) {
+                $validation = $this->validator->validateEnvioDTE($xml);
+                if (!$validation['valid']) {
+                    Log::warning('Generated EnvioDTE XML does not validate against XSD', $validation);
+                }
+            }
+
+            return $xml;
         } catch (Exception $e) {
             Log::error('Error generating EnvioDTE XML', [
                 'error' => $e->getMessage(),
@@ -321,42 +347,4 @@ class XMLGeneratorService
         }
     }
 
-    /**
-     * Validate XML against XSD schema
-     *
-     * @param string $xml
-     * @param string $xsdPath
-     * @return bool
-     * @throws Exception
-     */
-    public function validateXML(string $xml, string $xsdPath): bool
-    {
-        libxml_use_internal_errors(true);
-        
-        $doc = new DOMDocument();
-        $doc->loadXML($xml);
-        
-        if (!file_exists($xsdPath)) {
-            throw new Exception('XSD schema file not found: ' . $xsdPath);
-        }
-        
-        if (!$doc->schemaValidate($xsdPath)) {
-            $errors = libxml_get_errors();
-            $errorMessages = [];
-            
-            foreach ($errors as $error) {
-                $errorMessages[] = sprintf(
-                    "Line %d: %s",
-                    $error->line,
-                    trim($error->message)
-                );
-            }
-            
-            libxml_clear_errors();
-            
-            throw new Exception('XML validation failed: ' . implode('; ', $errorMessages));
-        }
-        
-        return true;
-    }
 }

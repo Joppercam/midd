@@ -4,98 +4,104 @@ namespace App\Http\Controllers\SII;
 
 use App\Http\Controllers\Controller;
 use App\Models\TaxDocument;
+use App\Services\SII\DTEService;
+use App\Services\SII\SIIAuthService;
 use App\Services\SII\SIIService;
+use App\Traits\ChecksPermissions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 
 class SIIController extends Controller
 {
-    protected $siiService;
+    use ChecksPermissions;
+    private SIIService $siiService;
+    private SIIAuthService $siiAuthService;
+    private DTEService $dteService;
 
-    public function __construct(SIIService $siiService)
+    public function __construct(SIIService $siiService, SIIAuthService $siiAuthService, DTEService $dteService)
     {
         $this->siiService = $siiService;
+        $this->siiAuthService = $siiAuthService;
+        $this->dteService = $dteService;
     }
 
     public function configuration()
     {
+        $this->checkPermission('sii.manage');
         $tenant = auth()->user()->tenant;
         
         return Inertia::render('SII/Configuration', [
-            'tenant' => $tenant->only(['id', 'name', 'rut']),
-            'hasConfiguration' => $tenant->sii_configuration()->exists(),
-            'configuration' => $tenant->sii_configuration,
+            'tenant' => $tenant,
+            'hasConfiguration' => !empty($tenant->sii_resolution_number),
+            'configuration' => [
+                'resolution_number' => $tenant->sii_resolution_number,
+                'resolution_date' => $tenant->sii_resolution_date,
+                'environment' => $tenant->sii_environment ?? 'certification',
+            ],
         ]);
     }
 
     public function updateConfiguration(Request $request)
     {
+        $this->checkPermission('sii.manage');
         $validated = $request->validate([
-            'resolution_number' => 'required|integer',
+            'resolution_number' => 'required|numeric',
             'resolution_date' => 'required|date',
             'environment' => 'required|in:certification,production',
         ]);
 
         $tenant = auth()->user()->tenant;
-        
-        $tenant->sii_configuration()->updateOrCreate(
-            ['tenant_id' => $tenant->id],
-            $validated
-        );
-
-        return redirect()->back()->with('success', 'Configuración SII actualizada exitosamente');
-    }
-
-    public function uploadCertificate(Request $request)
-    {
-        $request->validate([
-            'certificate' => 'required|file|mimes:p12,pfx|max:2048',
-            'password' => 'required|string',
+        $tenant->update([
+            'sii_resolution_number' => $validated['resolution_number'],
+            'sii_resolution_date' => $validated['resolution_date'],
+            'sii_environment' => $validated['environment'],
         ]);
 
-        $tenant = auth()->user()->tenant;
-
-        try {
-            $result = $this->siiService->uploadCertificate(
-                $request->file('certificate'),
-                $request->password
-            );
-
-            if (!$result['success']) {
-                return redirect()->back()->withErrors(['certificate' => $result['message']]);
-            }
-
-            return redirect()->back()->with('success', 'Certificado digital cargado exitosamente');
-        } catch (\Exception $e) {
-            Log::error('Error uploading certificate', [
-                'tenant_id' => $tenant->id,
-                'error' => $e->getMessage(),
-            ]);
-
-            return redirect()->back()->withErrors(['certificate' => 'Error al cargar el certificado']);
-        }
+        return redirect()->back()->with('success', 'Configuración actualizada correctamente');
     }
 
-    public function send(TaxDocument $taxDocument)
+    public function sendInvoice(TaxDocument $invoice)
     {
-        $this->authorize('update', $taxDocument);
+        $this->checkPermission('sii.send');
+        // Verify ownership
+        if ($invoice->tenant_id !== auth()->user()->tenant_id) {
+            abort(403);
+        }
 
-        if ($taxDocument->sii_status !== 'pending') {
-            return redirect()->back()->withErrors(['error' => 'El documento ya fue enviado al SII']);
+        // Check if already sent
+        if ($invoice->sii_status === 'accepted') {
+            return redirect()->back()->with('warning', 'Este documento ya fue aceptado por el SII');
         }
 
         try {
-            $result = $this->siiService->processInvoice($taxDocument);
+            // Create DTE if not exists
+            if (!$invoice->xml_content) {
+                $dteResult = $this->dteService->createDTE($invoice, auth()->user()->tenant);
+                if (!$dteResult['success']) {
+                    return redirect()->back()->withErrors(['error' => 'Error al generar el DTE']);
+                }
+            }
+
+            // Authenticate with SII
+            $authResult = $this->siiAuthService->authenticate(auth()->user()->tenant);
+            
+            if (!$authResult['success']) {
+                return redirect()->back()->withErrors(['error' => 'Error de autenticación con SII']);
+            }
+
+            // Send to SII
+            $result = $this->dteService->sendDTE($invoice, $authResult['token']);
 
             if ($result['success']) {
-                return redirect()->back()->with('success', 'Documento enviado exitosamente al SII');
+                return redirect()->back()->with('success', 'Documento enviado exitosamente al SII. Track ID: ' . $result['track_id']);
             } else {
                 return redirect()->back()->withErrors(['error' => $result['message']]);
             }
+
         } catch (\Exception $e) {
             Log::error('Error sending document to SII', [
-                'document_id' => $taxDocument->id,
+                'document_id' => $invoice->id,
                 'error' => $e->getMessage(),
             ]);
 
@@ -103,52 +109,9 @@ class SIIController extends Controller
         }
     }
 
-    public function checkStatus(TaxDocument $taxDocument)
+    public function sendBatch(Request $request)
     {
-        $this->authorize('view', $taxDocument);
-
-        if (!$taxDocument->sii_track_id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'El documento no tiene un ID de seguimiento SII',
-            ], 400);
-        }
-
-        try {
-            $result = $this->siiService->checkStatus($taxDocument->sii_track_id);
-
-            if ($result['success']) {
-                $taxDocument->update([
-                    'sii_status' => $result['status'],
-                    'sii_response' => $result['response'],
-                ]);
-
-                return response()->json([
-                    'success' => true,
-                    'status' => $result['status'],
-                    'response' => $result['response'],
-                ]);
-            } else {
-                return response()->json([
-                    'success' => false,
-                    'message' => $result['message'],
-                ], 400);
-            }
-        } catch (\Exception $e) {
-            Log::error('Error checking SII status', [
-                'document_id' => $taxDocument->id,
-                'error' => $e->getMessage(),
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Error al consultar el estado en SII',
-            ], 500);
-        }
-    }
-
-    public function batchSend(Request $request)
-    {
+        $this->checkPermission('sii.send');
         $validated = $request->validate([
             'document_ids' => 'required|array',
             'document_ids.*' => 'exists:tax_documents,id',
@@ -183,8 +146,74 @@ class SIIController extends Controller
         }
     }
 
+    /**
+     * Check document status
+     */
+    public function checkStatus(TaxDocument $document)
+    {
+        $this->checkPermission('sii.manage');
+        // Verify ownership
+        if ($document->tenant_id !== auth()->user()->tenant_id) {
+            abort(403);
+        }
+
+        if (!$document->sii_track_id) {
+            return redirect()->back()->withErrors(['error' => 'El documento no tiene un Track ID asignado']);
+        }
+
+        try {
+            // Authenticate with SII
+            $authResult = $this->siiAuthService->authenticate(auth()->user()->tenant);
+            
+            if (!$authResult['success']) {
+                return redirect()->back()->withErrors(['error' => 'Error de autenticación con SII']);
+            }
+
+            // Check status
+            $result = $this->dteService->checkDTEStatus(
+                $document->sii_track_id,
+                $authResult['token'],
+                auth()->user()->tenant
+            );
+
+            return redirect()->back()->with('success', 'Estado actualizado correctamente');
+
+        } catch (\Exception $e) {
+            Log::error('Error checking document status', [
+                'document_id' => $document->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return redirect()->back()->withErrors(['error' => 'Error al consultar el estado del documento']);
+        }
+    }
+
+    /**
+     * Show document SII status
+     */
+    public function showStatus(TaxDocument $document)
+    {
+        $this->checkPermission('sii.manage');
+        // Verify ownership
+        if ($document->tenant_id !== auth()->user()->tenant_id) {
+            abort(403);
+        }
+
+        $document->load(['customer', 'siiEventLogs' => function ($query) {
+            $query->orderBy('created_at', 'desc')->limit(20);
+        }]);
+
+        return Inertia::render('SII/DocumentStatus', [
+            'document' => $document->append(['type_label', 'sii_status_label', 'sii_status_color', 'is_sii_pending', 'can_resend_to_sii']),
+            'eventLogs' => $document->siiEventLogs->map(function ($log) {
+                return $log->append(['formatted_event_type', 'is_error', 'response_time_in_seconds']);
+            }),
+        ]);
+    }
+
     public function testConnection()
     {
+        $this->checkPermission('sii.manage');
         try {
             $result = $this->siiService->testConnection();
 
@@ -200,5 +229,95 @@ class SIIController extends Controller
                 'message' => 'Error al probar la conexión con SII',
             ], 500);
         }
+    }
+    
+    public function environmentManagement()
+    {
+        $this->checkPermission('sii.manage');
+        $tenant = auth()->user()->tenant;
+        
+        return Inertia::render('SII/EnvironmentManagement', [
+            'tenant' => $tenant,
+            'currentEnvironment' => $tenant->sii_environment ?? 'certification',
+            'environments' => [
+                'certification' => 'Certificación (Maullin)',
+                'production' => 'Producción (Palena)',
+            ],
+            'canSwitchToProduction' => $tenant->sii_environment === 'certification' && $tenant->sii_certification_completed,
+        ]);
+    }
+    
+    public function switchEnvironment(Request $request)
+    {
+        $this->checkPermission('sii.manage');
+        $validated = $request->validate([
+            'environment' => 'required|in:certification,production',
+        ]);
+        
+        $tenant = auth()->user()->tenant;
+        
+        // Validate switch to production
+        if ($validated['environment'] === 'production') {
+            if ($tenant->sii_environment !== 'certification') {
+                return redirect()->back()->withErrors(['error' => 'Debe estar en ambiente de certificación para cambiar a producción']);
+            }
+            
+            if (!$tenant->sii_certification_completed) {
+                return redirect()->back()->withErrors(['error' => 'Debe completar la certificación antes de cambiar a producción']);
+            }
+        }
+        
+        $tenant->update([
+            'sii_environment' => $validated['environment'],
+        ]);
+        
+        $environmentLabel = $validated['environment'] === 'certification' ? 'Certificación' : 'Producción';
+        
+        return redirect()->back()->with('success', "Ambiente cambiado a {$environmentLabel} exitosamente");
+    }
+    
+    public function validateCertification()
+    {
+        $this->checkPermission('sii.manage');
+        $tenant = auth()->user()->tenant;
+        
+        try {
+            $result = $this->siiService->validateCertificationEnvironment($tenant);
+            
+            // Mark certification as completed if all tests pass
+            if ($result['success'] && $result['ready_for_production']) {
+                $tenant->update([
+                    'sii_certification_completed' => true,
+                    'sii_certification_date' => now(),
+                ]);
+            }
+            
+            return response()->json($result);
+            
+        } catch (\Exception $e) {
+            Log::error('Error validating certification', [
+                'tenant_id' => $tenant->id,
+                'error' => $e->getMessage(),
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'errors' => ['Error al validar la certificación: ' . $e->getMessage()],
+            ], 500);
+        }
+    }
+    
+    public function resetCertification()
+    {
+        $this->checkPermission('sii.manage');
+        $tenant = auth()->user()->tenant;
+        
+        $tenant->update([
+            'sii_certification_completed' => false,
+            'sii_certification_date' => null,
+            'sii_environment' => 'certification',
+        ]);
+        
+        return redirect()->back()->with('success', 'Certificación reiniciada. Ambiente cambiado a certificación.');
     }
 }

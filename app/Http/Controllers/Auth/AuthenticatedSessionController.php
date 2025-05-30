@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Models\Activity;
 
 class AuthenticatedSessionController extends Controller
 {
@@ -33,6 +34,19 @@ class AuthenticatedSessionController extends Controller
 
         $request->session()->regenerate();
 
+        // Update last login
+        $user = Auth::user();
+        $user->update([
+            'last_login_at' => now(),
+            'login_count' => ($user->login_count ?? 0) + 1,
+        ]);
+
+        // Log activity
+        Activity::log('login', 'Inició sesión en el sistema', $user, [
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent(),
+        ]);
+
         return redirect()->intended(route('dashboard', absolute: false));
     }
 
@@ -41,6 +55,9 @@ class AuthenticatedSessionController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        // Log activity before logout
+        Activity::log('logout', 'Cerró sesión del sistema', Auth::user());
+
         Auth::guard('web')->logout();
 
         $request->session()->invalidate();

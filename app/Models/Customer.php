@@ -4,10 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Traits\Auditable;
+use App\Traits\InvalidatesCache;
 
 class Customer extends TenantAwareModel
 {
-    use HasFactory;
+    use HasFactory, Auditable, InvalidatesCache;
 
     protected $fillable = [
         'rut',
@@ -26,6 +28,11 @@ class Customer extends TenantAwareModel
     public function taxDocuments(): HasMany
     {
         return $this->hasMany(TaxDocument::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
     }
 
     public function getTotalDebtAttribute(): float
@@ -53,5 +60,22 @@ class Customer extends TenantAwareModel
         $dv = strtoupper(substr($rut, -1));
         
         return number_format($body, 0, '', '.') . '-' . $dv;
+    }
+    
+    /**
+     * Boot method to handle model events
+     */
+    protected static function boot()
+    {
+        parent::boot();
+        
+        // Invalidate cache on create, update, or delete
+        static::saved(function ($customer) {
+            $customer->invalidateDashboardCache($customer->tenant_id);
+        });
+        
+        static::deleted(function ($customer) {
+            $customer->invalidateDashboardCache($customer->tenant_id);
+        });
     }
 }

@@ -29,18 +29,85 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $tenant = null;
+        $user = $request->user();
+        $superAdmin = $request->user('super_admin');
+        $userRoles = [];
+        $userPermissions = [];
+        
+        // Manejar SuperAdmin separadamente
+        if ($superAdmin) {
+            return [
+                ...parent::share($request),
+                'auth' => [
+                    'superAdmin' => [
+                        'id' => $superAdmin->id,
+                        'name' => $superAdmin->name,
+                        'email' => $superAdmin->email,
+                        'roles' => ['super_admin'],
+                        'permissions' => ['*'], // Acceso total
+                    ],
+                ],
+                'flash' => [
+                    'success' => fn () => $request->session()->get('success'),
+                    'error' => fn () => $request->session()->get('error'),
+                    'warning' => fn () => $request->session()->get('warning'),
+                    'info' => fn () => $request->session()->get('info'),
+                ],
+                'app' => [
+                    'name' => config('app.name'),
+                    'url' => config('app.url'),
+                ],
+            ];
+        }
+        
+        if ($user) {
+            // Cargar relaciones necesarias solo para usuarios regulares
+            $user->load(['tenant', 'roles', 'permissions']);
+            
+            if ($user->tenant) {
+                $tenant = $user->tenant;
+                $tenant->updateLastActivity();
+            }
+            
+            // Por ahora, simplificar los roles y permisos
+            // hasta que se arregle la integración con Spatie
+            $userRoles = [];
+            $userPermissions = [];
+            
+            if ($user->isAdmin()) {
+                $userRoles = ['admin'];
+                // Dar todos los permisos básicos al admin
+                $userPermissions = [
+                    'dashboard.view',
+                    'customers.view', 'customers.create', 'customers.update', 'customers.delete',
+                    'products.view', 'products.create', 'products.update', 'products.delete',
+                    'invoices.view', 'invoices.create', 'invoices.update', 'invoices.delete',
+                    // Agregar más según sea necesario
+                ];
+            }
+        }
+
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $request->user() ? [
-                    'id' => $request->user()->id,
-                    'name' => $request->user()->name,
-                    'email' => $request->user()->email,
-                    'tenant' => $request->user()->tenant ? [
-                        'id' => $request->user()->tenant->id,
-                        'name' => $request->user()->tenant->name,
-                        'subscription_plan' => $request->user()->tenant->subscription_plan,
-                        'subscription_status' => $request->user()->tenant->subscription_status,
+                'user' => $user ? [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'roles' => $userRoles,
+                    'permissions' => $userPermissions,
+                    'tenant' => $tenant ? [
+                        'id' => $tenant->id,
+                        'name' => $tenant->name,
+                        'legal_name' => $tenant->legal_name,
+                        'logo_url' => $tenant->logo_url,
+                        'primary_color' => $tenant->primary_color,
+                        'secondary_color' => $tenant->secondary_color,
+                        'subscription_plan' => $tenant->subscription_plan,
+                        'subscription_status' => $tenant->subscription_status,
+                        'plan' => $tenant->plan,
+                        'features' => $tenant->features ?? [],
                     ] : null,
                 ] : null,
             ],
@@ -49,6 +116,10 @@ class HandleInertiaRequests extends Middleware
                 'error' => fn () => $request->session()->get('error'),
                 'warning' => fn () => $request->session()->get('warning'),
                 'info' => fn () => $request->session()->get('info'),
+            ],
+            'app' => [
+                'name' => config('app.name'),
+                'url' => config('app.url'),
             ],
         ];
     }
