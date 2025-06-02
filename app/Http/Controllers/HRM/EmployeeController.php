@@ -15,7 +15,7 @@ class EmployeeController extends Controller
 {
     public function __construct()
     {
-        $this->middleware(['auth', 'tenant']);
+        $this->middleware('auth');
         $this->middleware('permission:hrm.employees.view')->only(['index', 'show']);
         $this->middleware('permission:hrm.employees.create')->only(['create', 'store']);
         $this->middleware('permission:hrm.employees.edit')->only(['edit', 'update']);
@@ -27,17 +27,25 @@ class EmployeeController extends Controller
      */
     public function index(Request $request)
     {
+        $tenantId = auth()->user()->tenant_id;
+
         $query = Employee::with(['currentContract.department', 'currentContract.position'])
-            ->where('tenant_id', tenant()->id);
+            ->where('tenant_id', $tenantId);
 
         // Apply filters
         if ($request->status) {
             $query->where('status', $request->status);
         }
 
-        if ($request->department_id) {
+        if ($request->department) {
             $query->whereHas('currentContract', function($q) use ($request) {
-                $q->where('department_id', $request->department_id);
+                $q->where('department_id', $request->department);
+            });
+        }
+
+        if ($request->position) {
+            $query->whereHas('currentContract', function($q) use ($request) {
+                $q->where('position_id', $request->position);
             });
         }
 
@@ -52,12 +60,36 @@ class EmployeeController extends Controller
         }
 
         $employees = $query->latest()->paginate(20);
-        $departments = Department::where('tenant_id', tenant()->id)->active()->get();
+        $departments = Department::where('tenant_id', $tenantId)->active()->get();
+        $positions = Position::where('tenant_id', $tenantId)->active()->get();
+
+        // Calculate statistics
+        $totalEmployees = Employee::where('tenant_id', $tenantId)->count();
+        $activeEmployees = Employee::where('tenant_id', $tenantId)->where('status', 'active')->count();
+        $onVacation = Employee::where('tenant_id', $tenantId)
+            ->whereHas('leaveRequests', function($q) {
+                $q->where('status', 'approved')
+                  ->where('start_date', '<=', now())
+                  ->where('end_date', '>=', now());
+            })->count();
+        
+        $monthlyPayroll = EmploymentContract::where('tenant_id', $tenantId)
+            ->where('status', 'active')
+            ->sum('base_salary');
+
+        $stats = [
+            'total_employees' => $totalEmployees,
+            'active_employees' => $activeEmployees,
+            'on_vacation' => $onVacation,
+            'monthly_payroll' => $monthlyPayroll,
+        ];
 
         return Inertia::render('HRM/Employees/Index', [
             'employees' => $employees,
             'departments' => $departments,
-            'filters' => $request->only(['status', 'department_id', 'search']),
+            'positions' => $positions,
+            'stats' => $stats,
+            'filters' => $request->only(['status', 'department', 'position', 'search']),
         ]);
     }
 
@@ -92,8 +124,8 @@ class EmployeeController extends Controller
      */
     public function create()
     {
-        $departments = Department::where('tenant_id', tenant()->id)->active()->get();
-        $positions = Position::where('tenant_id', tenant()->id)->active()->get();
+        $departments = Department::where('tenant_id', auth()->user()->tenant_id)->active()->get();
+        $positions = Position::where('tenant_id', auth()->user()->tenant_id)->active()->get();
 
         return Inertia::render('HRM/Employees/Create', [
             'departments' => $departments,
@@ -137,7 +169,7 @@ class EmployeeController extends Controller
             'emergency_contact_name', 'emergency_contact_phone'
         ]);
 
-        $employeeData['tenant_id'] = tenant()->id;
+        $employeeData['tenant_id'] = auth()->user()->tenant_id;
         $employeeData['status'] = Employee::STATUS_ACTIVE;
 
         // Handle photo upload
@@ -154,7 +186,7 @@ class EmployeeController extends Controller
             'start_date', 'end_date', 'base_salary', 'work_hours_per_week'
         ]);
 
-        $contractData['tenant_id'] = tenant()->id;
+        $contractData['tenant_id'] = auth()->user()->tenant_id;
         $contractData['employee_id'] = $employee->id;
         $contractData['status'] = EmploymentContract::STATUS_ACTIVE;
 
@@ -170,8 +202,8 @@ class EmployeeController extends Controller
     public function edit(Employee $employee)
     {
         $employee->load('currentContract');
-        $departments = Department::where('tenant_id', tenant()->id)->active()->get();
-        $positions = Position::where('tenant_id', tenant()->id)->active()->get();
+        $departments = Department::where('tenant_id', auth()->user()->tenant_id)->active()->get();
+        $positions = Position::where('tenant_id', auth()->user()->tenant_id)->active()->get();
 
         return Inertia::render('HRM/Employees/Edit', [
             'employee' => $employee,
@@ -253,7 +285,7 @@ class EmployeeController extends Controller
     {
         $user = auth()->user();
         $employee = Employee::where('user_id', $user->id)
-            ->where('tenant_id', tenant()->id)
+            ->where('tenant_id', auth()->user()->tenant_id)
             ->with([
                 'currentContract.department',
                 'currentContract.position',
@@ -280,14 +312,14 @@ class EmployeeController extends Controller
      */
     public function statistics()
     {
-        $tenant = tenant();
+        $tenantId = auth()->user()->tenant_id;
         
         $stats = [
-            'total_employees' => Employee::where('tenant_id', $tenant->id)->count(),
-            'active_employees' => Employee::where('tenant_id', $tenant->id)->active()->count(),
-            'terminated_employees' => Employee::where('tenant_id', $tenant->id)
+            'total_employees' => Employee::where('tenant_id', $tenantId)->count(),
+            'active_employees' => Employee::where('tenant_id', $tenantId)->active()->count(),
+            'terminated_employees' => Employee::where('tenant_id', $tenantId)
                 ->where('status', Employee::STATUS_TERMINATED)->count(),
-            'employees_by_department' => Department::where('tenant_id', $tenant->id)
+            'employees_by_department' => Department::where('tenant_id', $tenantId)
                 ->withCount(['activeContracts as employee_count'])
                 ->get()
                 ->map(function($dept) {
@@ -296,10 +328,10 @@ class EmployeeController extends Controller
                         'count' => $dept->employee_count,
                     ];
                 }),
-            'contracts_expiring' => EmploymentContract::where('tenant_id', $tenant->id)
+            'contracts_expiring' => EmploymentContract::where('tenant_id', $tenantId)
                 ->expiringSoon(30)
                 ->count(),
-            'average_salary' => EmploymentContract::where('tenant_id', $tenant->id)
+            'average_salary' => EmploymentContract::where('tenant_id', $tenantId)
                 ->active()
                 ->avg('base_salary'),
         ];

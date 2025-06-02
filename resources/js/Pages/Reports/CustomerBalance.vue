@@ -220,10 +220,10 @@
                                         </td>
                                         <td class="px-4 py-3 text-right text-sm font-medium">
                                             <Link
-                                                :href="route('customers.statement', customer.id)"
+                                                :href="route('customers.show', customer.id)"
                                                 class="text-indigo-600 hover:text-indigo-900"
                                             >
-                                                Ver estado
+                                                Ver cliente
                                             </Link>
                                         </td>
                                     </tr>
@@ -244,10 +244,34 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Chart from 'chart.js/auto';
 
 const props = defineProps({
-    customers: Array,
-    statistics: Object,
-    aging_analysis: Object,
-    filters: Object
+    customers: {
+        type: Array,
+        default: () => []
+    },
+    statistics: {
+        type: Object,
+        default: () => ({
+            total_customers: 0,
+            total_balance: 0,
+            total_overdue: 0,
+            customers_with_balance: 0,
+            customers_overdue: 0
+        })
+    },
+    aging_analysis: {
+        type: Object,
+        default: () => ({
+            current: 0,
+            days_30: 0,
+            days_60: 0,
+            days_90: 0,
+            over_90: 0
+        })
+    },
+    filters: {
+        type: Object,
+        default: () => ({ status: 'all' })
+    }
 });
 
 const agingChart = ref(null);
@@ -310,9 +334,10 @@ const exportPDF = () => {
 };
 
 onMounted(() => {
-    // Crear gráfico de antigüedad
-    const ctx = agingChart.value.getContext('2d');
-    new Chart(ctx, {
+    // Crear gráfico de antigüedad solo si el elemento existe
+    if (agingChart.value) {
+        const ctx = agingChart.value.getContext('2d');
+        new Chart(ctx, {
         type: 'bar',
         data: {
             labels: ['Por Vencer', '1-30 días', '31-60 días', '61-90 días', 'Más de 90 días'],
@@ -361,5 +386,6 @@ onMounted(() => {
             }
         }
     });
+    }
 });
 </script>

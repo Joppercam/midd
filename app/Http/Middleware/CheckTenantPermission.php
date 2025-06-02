@@ -21,12 +21,22 @@ class CheckTenantPermission
             abort(403, 'Unauthorized');
         }
 
-        // Set the team ID for Spatie permissions (using tenant_id)
-        setPermissionsTeamId($user->tenant_id);
+        // Check if user is admin (bypass permission check)
+        if ($user->isAdmin()) {
+            return $next($request);
+        }
 
-        // Check if user has the required permission
-        if (!$user->hasPermissionTo($permission)) {
-            abort(403, 'No tienes permiso para realizar esta acción');
+        // Check using our custom permission system
+        if (!$user->hasPermission($permission)) {
+            // Fallback to Spatie Permission system
+            try {
+                setPermissionsTeamId($user->tenant_id);
+                if (!$user->hasPermissionTo($permission)) {
+                    abort(403, 'No tienes permiso para realizar esta acción');
+                }
+            } catch (\Exception $e) {
+                abort(403, 'No tienes permiso para realizar esta acción');
+            }
         }
 
         return $next($request);

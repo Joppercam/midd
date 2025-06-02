@@ -64,7 +64,7 @@ return [
     */
     'two_factor' => [
         'enabled' => env('2FA_ENABLED', true),
-        'issuer' => env('2FA_ISSUER', 'CrecePyme'),
+        'issuer' => env('2FA_ISSUER', 'MIDD'),
         'recovery_codes' => 8,
         'window' => 1, // Time window in 30 second intervals
     ],

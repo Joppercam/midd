@@ -14,15 +14,25 @@ class Customer extends TenantAwareModel
     protected $fillable = [
         'rut',
         'name',
+        'type',
         'email',
         'phone',
         'address',
+        'commune',
+        'city',
+        'business_activity',
+        'contact_name',
+        'notes',
         'credit_limit',
+        'payment_term_days',
+        'is_active',
     ];
 
     protected $casts = [
         'address' => 'array',
         'credit_limit' => 'decimal:2',
+        'payment_term_days' => 'integer',
+        'is_active' => 'boolean',
     ];
 
     public function taxDocuments(): HasMany

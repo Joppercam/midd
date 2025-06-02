@@ -233,7 +233,7 @@ class RealTimeNotificationController extends Controller
                 'scheme' => config('broadcasting.connections.reverb.options.scheme'),
             ],
             'user' => Auth::user(),
-            'tenant' => Auth::user()->tenant,
+            'tenant_id' => Auth::user()->tenant_id,
         ]);
     }
 }

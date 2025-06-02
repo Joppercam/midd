@@ -97,7 +97,7 @@
           </div>
 
           <!-- Footer -->
-          <div class="px-4 py-3 border-t border-gray-200">
+          <div v-if="typeof route === 'function' && route.has && route.has('notifications.index')" class="px-4 py-3 border-t border-gray-200">
             <Link
               :href="route('notifications.index')"
               class="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
@@ -244,13 +244,16 @@ const toggleNotifications = () => {
 
 const markAllAsRead = async () => {
   try {
-    await fetch(route('notifications.mark-all-read'), {
-      method: 'POST',
-      headers: {
-        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
-        'Content-Type': 'application/json'
-      }
-    })
+    // Verificar que la ruta existe
+    if (typeof route === 'function' && route.has && route.has('notifications.mark-all-read')) {
+      await fetch(route('notifications.mark-all-read'), {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+          'Content-Type': 'application/json'
+        }
+      })
+    }
     
     notifications.value.forEach(n => n.read = true)
   } catch (error) {
@@ -277,12 +280,15 @@ const handleNotificationClick = async (notification) => {
 
 const markAsRead = async (notificationId) => {
   try {
-    await fetch(route('notifications.mark-read', notificationId), {
-      method: 'POST',
-      headers: {
-        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-      }
-    })
+    // Verificar que la ruta existe
+    if (typeof route === 'function' && route.has && route.has('notifications.mark-read')) {
+      await fetch(route('notifications.mark-read', notificationId), {
+        method: 'POST',
+        headers: {
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+        }
+      })
+    }
     
     const notification = notifications.value.find(n => n.id === notificationId)
     if (notification) {
@@ -407,52 +413,72 @@ const formatTimestamp = (timestamp) => {
 
 const loadOfflineNotifications = async () => {
   try {
-    const response = await fetch(route('notifications.offline'))
-    const offlineNotifications = await response.json()
-    
-    offlineNotifications.forEach(notification => {
-      addNotification(notification)
-    })
+    // Verificar que la ruta existe antes de hacer fetch
+    if (typeof route === 'function' && route.has && route.has('notifications.offline')) {
+      const response = await fetch(route('notifications.offline'))
+      if (response.ok) {
+        const offlineNotifications = await response.json()
+        offlineNotifications.forEach(notification => {
+          addNotification(notification)
+        })
+      }
+    }
   } catch (error) {
     console.error('Failed to load offline notifications:', error)
   }
 }
 
 const initializePusher = () => {
-  // Initialize Pusher
-  pusher.value = new Pusher(window.pusherConfig.key, {
-    cluster: window.pusherConfig.cluster,
-    encrypted: true
-  })
-  
-  const user = usePage().props.auth.user
-  
-  // Subscribe to user channel
-  userChannel.value = pusher.value.subscribe(`user.${user.id}`)
-  
-  // Listen for notifications
-  userChannel.value.bind('notification', (data) => {
-    addNotification(data)
-  })
-  
-  // Listen for progress updates
-  userChannel.value.bind('progress', (data) => {
-    updateProgress(data)
-  })
-  
-  // Subscribe to system channel
-  systemChannel.value = pusher.value.subscribe('system')
-  systemChannel.value.bind('notification', (data) => {
-    addNotification(data)
-  })
-  
-  // Subscribe to tenant channel for entity updates
-  if (user.tenant_id) {
-    const tenantChannel = pusher.value.subscribe(`tenant.${user.tenant_id}`)
-    tenantChannel.bind('entity.updated', (data) => {
-      // Handle entity updates (refresh data, show notifications, etc.)
-      console.log('Entity updated:', data)
+  try {
+    // Verificar que Pusher esté disponible
+    if (typeof Pusher === 'undefined') {
+      console.warn('Pusher is not available - real-time notifications disabled')
+      return
+    }
+    
+    // Verificar configuración
+    if (!window.pusherConfig || !window.pusherConfig.key) {
+      console.warn('Pusher configuration missing - real-time notifications disabled')
+      return
+    }
+    
+    // Initialize Pusher
+    pusher.value = new Pusher(window.pusherConfig.key, {
+      cluster: window.pusherConfig.cluster,
+      encrypted: true
     })
+    
+    const user = usePage().props.auth.user
+    
+    // Subscribe to user channel
+    userChannel.value = pusher.value.subscribe(`user.${user.id}`)
+    
+    // Listen for notifications
+    userChannel.value.bind('notification', (data) => {
+      addNotification(data)
+    })
+    
+    // Listen for progress updates
+    userChannel.value.bind('progress', (data) => {
+      updateProgress(data)
+    })
+    
+    // Subscribe to system channel
+    systemChannel.value = pusher.value.subscribe('system')
+    systemChannel.value.bind('notification', (data) => {
+      addNotification(data)
+    })
+    
+    // Subscribe to tenant channel for entity updates
+    if (user.tenant_id) {
+      const tenantChannel = pusher.value.subscribe(`tenant.${user.tenant_id}`)
+      tenantChannel.bind('entity.updated', (data) => {
+        // Handle entity updates (refresh data, show notifications, etc.)
+        console.log('Entity updated:', data)
+      })
+    }
+  } catch (error) {
+    console.error('Failed to initialize Pusher:', error)
   }
 }
 

@@ -78,7 +78,12 @@ trait EagerLoadsRelations
         
         foreach ($conditions as $condition) {
             if (static::evaluateCondition($condition, $request, $model)) {
-                $eagerLoads = array_merge($eagerLoads, $condition['relations']);
+                $relations = $condition['relations'] ?? [];
+                // Ensure relations is an array, not a Collection
+                if ($relations instanceof \Illuminate\Support\Collection) {
+                    $relations = $relations->toArray();
+                }
+                $eagerLoads = array_merge($eagerLoads, $relations);
             }
         }
         

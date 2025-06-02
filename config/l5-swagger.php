@@ -5,7 +5,7 @@ return [
     'documentations' => [
         'default' => [
             'api' => [
-                'title' => 'CrecePyme API Documentation',
+                'title' => 'MIDD API Documentation',
             ],
 
             'routes' => [

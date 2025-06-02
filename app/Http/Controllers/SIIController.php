@@ -9,6 +9,7 @@ use App\Services\SII\DTEService;
 use App\Services\SII\FolioManagerService;
 use App\Services\SII\ResponseProcessorService;
 use App\Services\SII\AdvancedSIIService;
+use App\Traits\ChecksPermissions;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -16,6 +17,8 @@ use Inertia\Inertia;
 
 class SIIController extends Controller
 {
+    use ChecksPermissions;
+    
     protected DTEService $dteService;
     protected FolioManagerService $folioService;
     protected ResponseProcessorService $responseProcessor;
@@ -27,7 +30,7 @@ class SIIController extends Controller
         ResponseProcessorService $responseProcessor,
         AdvancedSIIService $advancedSIIService
     ) {
-        $this->middleware('permission:sii.manage');
+        $this->middleware('auth');
         
         $this->dteService = $dteService;
         $this->folioService = $folioService;
@@ -40,10 +43,14 @@ class SIIController extends Controller
      */
     public function configuration()
     {
-        $tenant = tenant();
+        $this->checkPermission('sii.view');
+        
+        $tenant = auth()->user()->tenant;
         
         return Inertia::render('SII/Configuration', [
             'tenant' => [
+                'name' => $tenant->name,
+                'rut' => $tenant->rut,
                 'sii_environment' => $tenant->sii_environment,
                 'sii_certification_completed' => $tenant->sii_certification_completed,
                 'sii_certification_date' => $tenant->sii_certification_date,
@@ -53,6 +60,12 @@ class SIIController extends Controller
                 'sii_resolution_number' => $tenant->sii_resolution_number,
             ],
             'hasCertificate' => $tenant->certificate_uploaded_at !== null,
+            'hasConfiguration' => $tenant->sii_resolution_number !== null && $tenant->sii_resolution_date !== null,
+            'configuration' => [
+                'resolution_number' => $tenant->sii_resolution_number,
+                'resolution_date' => $tenant->sii_resolution_date,
+                'environment' => $tenant->sii_environment ?? 'certification',
+            ],
         ]);
     }
 
@@ -69,7 +82,7 @@ class SIIController extends Controller
             'resolution_number' => 'required|integer',
         ]);
 
-        $tenant = tenant();
+        $tenant = auth()->user()->tenant;
         
         try {
             // Store certificate securely
@@ -178,7 +191,7 @@ class SIIController extends Controller
     public function folios()
     {
         $folioRanges = FolioRange::with('cafFile')
-            ->where('tenant_id', tenant()->id)
+            ->where('tenant_id', auth()->user()->tenant_id)
             ->orderBy('document_type')
             ->orderBy('start_number')
             ->get();
@@ -200,7 +213,7 @@ class SIIController extends Controller
         ]);
 
         try {
-            $tenant = tenant();
+            $tenant = auth()->user()->tenant;
             $xml = file_get_contents($request->file('caf_file')->getRealPath());
             
             // Process CAF file
@@ -272,7 +285,7 @@ class SIIController extends Controller
             'environment' => 'required|in:certification,production',
         ]);
 
-        $tenant = tenant();
+        $tenant = auth()->user()->tenant;
         
         // Check if can switch to production
         if ($request->environment === 'production' && !$tenant->sii_certification_completed) {
@@ -295,7 +308,7 @@ class SIIController extends Controller
      */
     public function completeCertification()
     {
-        $tenant = tenant();
+        $tenant = auth()->user()->tenant;
         
         if ($tenant->sii_certification_completed) {
             return back()->with('info', 'La certificación ya está completada.');

@@ -32,6 +32,14 @@ class Employee extends TenantAwareModel
         'birth_date' => 'date',
     ];
 
+    protected $appends = [
+        'full_name',
+        'current_salary',
+        'department',
+        'position',
+        'hire_date'
+    ];
+
     const STATUS_ACTIVE = 'active';
     const STATUS_INACTIVE = 'inactive';
     const STATUS_TERMINATED = 'terminated';
@@ -207,6 +215,38 @@ class Employee extends TenantAwareModel
     public function getCurrentSalary(): ?float
     {
         return $this->currentContract?->base_salary;
+    }
+
+    /**
+     * Get current salary as attribute
+     */
+    public function getCurrentSalaryAttribute(): ?float
+    {
+        return $this->getCurrentSalary();
+    }
+
+    /**
+     * Get department as attribute
+     */
+    public function getDepartmentAttribute()
+    {
+        return $this->getCurrentDepartment();
+    }
+
+    /**
+     * Get position as attribute
+     */
+    public function getPositionAttribute()
+    {
+        return $this->getCurrentPosition();
+    }
+
+    /**
+     * Get hire date from current contract
+     */
+    public function getHireDateAttribute()
+    {
+        return $this->currentContract?->start_date;
     }
 
     /**

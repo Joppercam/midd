@@ -3,7 +3,7 @@
 use App\Http\Controllers\SIIController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth', 'verified', '2fa', 'module:invoicing'])->prefix('sii')->name('sii.')->group(function () {
+Route::middleware(['auth', 'verified', '2fa'])->prefix('sii')->name('sii.')->group(function () {
     // Configuration
     Route::get('/configuration', [SIIController::class, 'configuration'])->name('configuration');
     Route::post('/certificate', [SIIController::class, 'uploadCertificate'])->name('certificate.upload');

@@ -38,6 +38,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'api.auth' => \App\Http\Middleware\ApiAuthentication::class,
             'handle.errors' => \App\Http\Middleware\HandleApiErrors::class,
             'module' => \App\Http\Middleware\CheckModuleAccess::class,
+            'check.module' => \App\Http\Middleware\CheckModuleMiddleware::class,
+            'check.subscription' => \App\Http\Middleware\CheckSubscription::class,
             'super_admin' => \App\Http\Middleware\SuperAdminAuthentication::class,
             'super_admin_guest' => \App\Http\Middleware\SuperAdminGuest::class,
             'prevent_impersonation_conflict' => \App\Http\Middleware\PreventSuperAdminImpersonationConflict::class,

@@ -1,4 +1,4 @@
-# 🚀 CrecePyme Suite Empresarial Modular
+# 🚀 MIDD Suite Empresarial Modular
 
 > **La primera suite empresarial modular diseñada específicamente para PyMEs chilenas**
 
@@ -7,9 +7,9 @@
 [![PHP](https://img.shields.io/badge/PHP-8.2+-blue.svg)](https://php.net)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## 🌟 ¿Qué es CrecePyme Suite?
+## 🌟 ¿Qué es MIDD Suite?
 
-CrecePyme es una **plataforma empresarial modular** que permite a las PyMEs chilenas gestionar todas sus operaciones desde una sola aplicación, pagando solo por las funcionalidades que necesitan.
+MIDD es una **plataforma empresarial modular** que permite a las PyMEs chilenas gestionar todas sus operaciones desde una sola aplicación, pagando solo por las funcionalidades que necesitan.
 
 ### 🎯 Propuesta de Valor
 

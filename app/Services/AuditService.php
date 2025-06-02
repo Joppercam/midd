@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 
 class AuditService
 {
-    public function getActivityFeed(?int $tenantId = null, array $filters = []): Collection
+    public function getActivityFeed(?string $tenantId = null, array $filters = [])
     {
         $query = AuditLog::query();
         
@@ -44,14 +44,15 @@ class AuditService
             $query->where(function ($q) use ($search) {
                 $q->where('auditable_name', 'like', "%{$search}%")
                     ->orWhere('user_name', 'like', "%{$search}%")
-                    ->orWhere('user_email', 'like', "%{$search}%");
+                    ->orWhere('user_email', 'like', "%{$search}%")
+                    ->orWhere('url', 'like', "%{$search}%")
+                    ->orWhere('event', 'like', "%{$search}%");
             });
         }
         
         return $query->with(['user', 'auditable'])
             ->orderBy('created_at', 'desc')
-            ->limit($filters['limit'] ?? 100)
-            ->get();
+            ->paginate($filters['limit'] ?? 20);
     }
 
     public function getModelHistory(Model $model, int $limit = 50): Collection
@@ -98,7 +99,7 @@ class AuditService
         ];
     }
 
-    public function getSystemStatistics(?int $tenantId = null, int $days = 30): array
+    public function getSystemStatistics(?string $tenantId = null, int $days = 30): array
     {
         $query = AuditLog::query();
         
@@ -181,7 +182,7 @@ class AuditService
         ];
     }
 
-    public function searchAuditLogs(string $query, ?int $tenantId = null, int $limit = 50): Collection
+    public function searchAuditLogs(string $query, ?string $tenantId = null, int $limit = 50): Collection
     {
         $searchQuery = AuditLog::query();
         
@@ -279,7 +280,7 @@ class AuditService
         return implode('; ', $changes);
     }
 
-    public function getComplianceReport(?int $tenantId, Carbon $startDate, Carbon $endDate): array
+    public function getComplianceReport(?string $tenantId, Carbon $startDate, Carbon $endDate): array
     {
         $query = AuditLog::whereBetween('created_at', [$startDate, $endDate]);
         
@@ -326,7 +327,7 @@ class AuditService
         ];
     }
 
-    public function configureAuditSettings(string $modelClass, ?int $tenantId, array $settings): AuditSetting
+    public function configureAuditSettings(string $modelClass, ?string $tenantId, array $settings): AuditSetting
     {
         $auditSetting = AuditSetting::firstOrNew([
             'tenant_id' => $tenantId,

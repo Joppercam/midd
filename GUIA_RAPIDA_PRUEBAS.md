@@ -1,11 +1,11 @@
-# 🚀 GUÍA RÁPIDA DE PRUEBAS - CRECEPYME
+# 🚀 GUÍA RÁPIDA DE PRUEBAS - MIDD
 
 ## 📌 INICIO RÁPIDO (5 MINUTOS)
 
 ### 1️⃣ INSTALACIÓN EXPRESS
 ```bash
 # Clonar y entrar al proyecto
-cd crecepyme
+cd midd
 
 # Instalar todo
 composer install
@@ -42,6 +42,192 @@ URL: http://localhost:8000/login
 Email: admin@demo.cl
 Pass: password
 ```
+
+---
+
+## 🎯 SISTEMA DE DEMO - FLUJO COMPLETO ✅
+
+### 📋 **RESUMEN DEL SISTEMA PROBADO**
+
+El sistema de demo permite a prospectos solicitar y acceder a demostraciones personalizadas con datos específicos según su tipo de negocio.
+
+### 🔄 **FLUJO PASO A PASO (PROBADO)**
+
+#### 1. **Solicitud de Demo** 
+```bash
+# Estado inicial: pending
+# El prospecto llena formulario en landing page
+```
+
+#### 2. **Gestión Admin - Contacto**
+```bash
+# Cambiar a: contacted
+php artisan tinker
+$demoRequest = App\Models\DemoRequest::find(ID);
+$demoRequest->update(['status' => 'contacted', 'contacted_at' => now()]);
+```
+
+#### 3. **Generación de Credenciales** ✅
+```bash
+# Crear sesión personalizada
+$demoService = new App\Services\DemoService();
+$demoSession = $demoService->createDemoSession($demoRequest->id);
+
+# ✅ Resultado exitoso:
+# Session ID: 56f19d56-be05-4568-9323-2602d47dc4b5
+# Demo URL: https://demo.crecepyme.local/demo/{session-id}
+# Usuario temporal creado: demo+{session-id}@crecepyme.cl
+# Datos específicos cargados por tipo de negocio
+```
+
+#### 4. **Datos Específicos por Negocio** ✅
+
+**RETAIL (Probado)**
+```php
+Categorías: Calzado, Ropa, Accesorios
+Productos:
+- Zapatillas Deportivas ($45,000) - Stock: 50
+- Camiseta Básica ($12,000) - Stock: 100  
+- Pantalón Jeans ($35,000) - Stock: 30
+- Mochila Escolar ($25,000) - Stock: 20
+```
+
+**RESTAURANTES**
+```php
+Categorías: Platos Principales, Pizzas, Bebidas
+Productos:
+- Hamburguesa Clásica ($8,500)
+- Pizza Margherita ($12,000) 
+- Bebida Gaseosa ($2,500)
+```
+
+**SERVICIOS**
+```php
+Categorías: Consultoría, Auditoría, Formación, Soporte
+Servicios:
+- Consultoría Estratégica ($180,000)
+- Auditoría Financiera ($250,000)
+- Capacitación Empresarial ($120,000)
+- Soporte Técnico Mensual ($85,000)
+```
+
+#### 5. **Acceso al Demo**
+```bash
+# Estado: demo_scheduled
+# Duración: 30 minutos
+# Posibilidad de extensión
+# URL única por sesión
+```
+
+#### 6. **Finalización** ✅
+```bash
+# Marcar completado
+$demoRequest->update([
+    'status' => 'demo_completed',
+    'demo_completed_at' => now()
+]);
+```
+
+#### 7. **Conversión** ✅
+```bash
+# Conversión exitosa
+$demoRequest->update([
+    'status' => 'converted', 
+    'converted_at' => now(),
+    'subscription_plan' => 'premium'
+]);
+
+# Limpieza automática
+$demoService->endDemoSession($sessionId);
+```
+
+### 📊 **ESTADÍSTICAS PROBADAS**
+
+```bash
+# Verificar sistema completo
+Total Requests: 7 (6 seeded + 1 test)
+- Pending: 2
+- Contacted: 1  
+- Demo Scheduled: 1
+- Demo Completed: 1
+- Converted: 2
+- Tasa Conversión: 28.5%
+```
+
+### 🏗️ **ARQUITECTURA FUNCIONAL**
+
+**Componentes Probados:**
+- ✅ `DemoService` - Gestión completa del ciclo
+- ✅ `DemoManagementController` - Panel admin
+- ✅ `DetectEnvironment` Middleware - Auto-detección entorno
+- ✅ Business-specific data seeding - Datos por tipo negocio
+- ✅ Tenant isolation - Aislamiento de datos
+- ✅ User lifecycle management - Gestión usuarios temporales
+
+### 🔧 **CONFIGURACIÓN ENTORNOS**
+
+**Demo (.env.demo)**
+```env
+APP_NAME="CrecePyme Demo"
+APP_ENV=demo
+DEMO_ENABLED=true
+DEMO_SESSION_DURATION=30
+```
+
+**Producción (.env.production)**  
+```env
+APP_ENV=production
+WAF_ENABLED=true
+2FA_ENABLED=true
+DEMO_ENABLED=false
+```
+
+### 🎯 **COMANDOS ÚTILES PARA TESTING**
+
+```bash
+# Ver solicitudes demo
+App\Models\DemoRequest::orderBy('created_at', 'desc')->get(['id', 'company_name', 'status']);
+
+# Estadísticas
+$stats = [
+    'total' => App\Models\DemoRequest::count(),
+    'pending' => App\Models\DemoRequest::where('status', 'pending')->count(),
+    'converted' => App\Models\DemoRequest::where('status', 'converted')->count(),
+];
+
+# Limpiar demos expirados
+(new App\Services\DemoService())->cleanupExpiredDemos();
+```
+
+### 🚀 **URLs DEL SISTEMA**
+
+**Producción:**
+- App Principal: `https://app.crecepyme.cl`
+- Landing: `https://crecepyme.cl`
+- Admin: `https://app.crecepyme.cl/admin`
+
+**Demo:**
+- Demo App: `https://demo.crecepyme.cl`
+- Demo Session: `https://demo.crecepyme.cl/demo/{session-id}`
+- Request Demo: `https://crecepyme.cl/demo/request`
+
+### ⚡ **FUNCIONES HELPER**
+
+```php
+isDemo(): bool                    // Detectar modo demo
+isDemoRequest(): bool            // Verificar request demo  
+demoWatermark(): string          // Marca de agua demo
+```
+
+### 🔒 **SEGURIDAD IMPLEMENTADA**
+
+- ✅ Sesiones temporales (30 min)
+- ✅ Datos aislados por tenant
+- ✅ Limpieza automática
+- ✅ Rate limiting por IP
+- ✅ Validación RUT chileno
+
+**🎉 SISTEMA DEMO COMPLETAMENTE FUNCIONAL Y PROBADO ✅**
 
 ---
 

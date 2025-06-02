@@ -109,7 +109,7 @@ class AppServiceProvider extends ServiceProvider
             'Inventory' => \App\Modules\Inventory\Module::class,
             'Invoicing' => \App\Modules\Invoicing\Module::class,
             'Accounting' => \App\Modules\Accounting\Module::class,
-            'HRM' => \App\Modules\HRM\Module::class,
+            'HRM' => \App\Modules\Hrm\Module::class,
             'POS' => \App\Modules\POS\Module::class,
             'Ecommerce' => \App\Modules\Ecommerce\Module::class,
         ];

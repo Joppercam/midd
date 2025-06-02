@@ -7,7 +7,7 @@
                     <div class="flex">
                         <div class="flex-shrink-0 flex items-center">
                             <h1 class="text-xl font-bold text-red-600">
-                                CrecePyme Super Administrador
+                                MIDD Super Administrador
                             </h1>
                         </div>
                     </div>

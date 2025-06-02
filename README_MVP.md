@@ -1,7 +1,7 @@
-# 🚀 CrecePyme - MVP v1.0
+# 🚀 MIDD - MVP v1.0
 
 ## 📋 Descripción
-CrecePyme es un sistema ERP completo diseñado específicamente para PyMEs chilenas. Esta versión MVP incluye todos los módulos esenciales para la gestión empresarial con integración completa al SII.
+MIDD es un sistema ERP completo diseñado específicamente para PyMEs chilenas. Esta versión MVP incluye todos los módulos esenciales para la gestión empresarial con integración completa al SII.
 
 ## 🏗️ Stack Tecnológico
 - **Backend:** Laravel 12 + PHP 8.2
@@ -40,7 +40,7 @@ CrecePyme es un sistema ERP completo diseñado específicamente para PyMEs chile
 ```bash
 # 1. Clonar repositorio
 git clone [URL_REPOSITORIO]
-cd crecepyme
+cd midd
 
 # 2. Instalar dependencias
 composer install
@@ -51,7 +51,7 @@ cp .env.example .env
 php artisan key:generate
 
 # 4. Configurar base de datos en .env
-# DB_DATABASE=crecepyme
+# DB_DATABASE=midd
 # DB_USERNAME=root
 # DB_PASSWORD=
 
@@ -70,7 +70,7 @@ php artisan serve
 ### Super Admin
 ```
 URL: http://localhost:8000/super-admin/login
-Email: superadmin@crecepyme.cl
+Email: superadmin@midd.cl
 Password: SuperAdmin123!
 ```
 

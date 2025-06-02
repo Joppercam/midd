@@ -1,13 +1,13 @@
-# CrecePyme API Documentation
+# MIDD API Documentation
 
 ## Descripción General
 
-La API REST de CrecePyme permite la integración con sistemas externos para gestionar clientes, productos, facturación electrónica y más.
+La API REST de MIDD permite la integración con sistemas externos para gestionar clientes, productos, facturación electrónica y más.
 
 ## Base URL
 
-- **Producción**: `https://api.crecepyme.cl/api/v1`
-- **Staging**: `https://staging-api.crecepyme.cl/api/v1`
+- **Producción**: `https://api.midd.cl/api/v1`
+- **Staging**: `https://staging-api.midd.cl/api/v1`
 - **Desarrollo**: `http://localhost:8000/api/v1`
 
 ## Autenticación

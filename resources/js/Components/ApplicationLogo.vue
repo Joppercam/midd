@@ -30,7 +30,7 @@
 
             <!-- Texto del logo -->
             <g class="logo-text">
-                <!-- CrecePyme -->
+                <!-- MIDD -->
                 <text
                     x="60"
                     y="30"
@@ -39,8 +39,7 @@
                     font-weight="700"
                     fill="currentColor"
                 >
-                    <tspan fill="currentColor">Crece</tspan>
-                    <tspan fill="currentColor" opacity="0.8">Pyme</tspan>
+                    <tspan fill="currentColor">MIDD</tspan>
                 </text>
                 
                 <!-- Tagline opcional -->

@@ -11,7 +11,7 @@
       </Link>
     </div>
     <div class="hidden md:-mt-px md:flex">
-      <template v-for="link in visibleLinks" :key="link.label">
+      <template v-for="link in visibleLinks" :key="link.label || Math.random()">
         <span
           v-if="link.label === '...'"
           class="inline-flex items-center border-t-2 border-transparent px-4 pt-4 text-sm font-medium text-gray-500"
@@ -64,23 +64,38 @@ import { ArrowLongLeftIcon, ArrowLongRightIcon } from '@heroicons/vue/24/outline
 const props = defineProps({
   links: {
     type: Array,
-    required: true
+    required: true,
+    default: () => []
   }
 })
 
+// Validar que links sea un array válido y no contenga elementos nulos
+const validLinks = computed(() => {
+  if (!Array.isArray(props.links)) {
+    return []
+  }
+  return props.links.filter(link => link && typeof link === 'object' && link.label)
+})
+
 const prevUrl = computed(() => {
-  const prevLink = props.links.find(link => link.label.includes('Previous'))
-  return prevLink?.url
+  const prevLink = validLinks.value.find(link => 
+    link.label && link.label.includes('Previous')
+  )
+  return prevLink?.url || null
 })
 
 const nextUrl = computed(() => {
-  const nextLink = props.links.find(link => link.label.includes('Next'))
-  return nextLink?.url
+  const nextLink = validLinks.value.find(link => 
+    link.label && link.label.includes('Next')
+  )
+  return nextLink?.url || null
 })
 
 const visibleLinks = computed(() => {
-  return props.links.filter(link => 
-    !link.label.includes('Previous') && !link.label.includes('Next')
+  return validLinks.value.filter(link => 
+    link.label && 
+    !link.label.includes('Previous') && 
+    !link.label.includes('Next')
   )
 })
 </script>

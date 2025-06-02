@@ -1,4 +1,4 @@
-# Bitácora de Desarrollo - CrecePyme
+# Bitácora de Desarrollo - MIDD
 
 ## 2025-05-29
 

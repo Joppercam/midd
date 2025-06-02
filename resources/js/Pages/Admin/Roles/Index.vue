@@ -34,7 +34,7 @@
                                     Roles del Sistema
                                 </h3>
                                 <div class="mt-2 text-sm text-blue-700">
-                                    <p>Los roles marcados como "Sistema" son esenciales para el funcionamiento de CrecePyme y no pueden ser eliminados.</p>
+                                    <p>Los roles marcados como "Sistema" son esenciales para el funcionamiento de MIDD y no pueden ser eliminados.</p>
                                 </div>
                             </div>
                         </div>

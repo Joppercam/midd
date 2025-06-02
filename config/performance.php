@@ -105,7 +105,7 @@ return [
     // Asset Optimization
     'assets' => [
         'enable_cdn_simulation' => env('PERFORMANCE_ENABLE_CDN_SIMULATION', false),
-        'cdn_base_url' => env('PERFORMANCE_CDN_BASE_URL', 'https://cdn.crecepyme.cl'),
+        'cdn_base_url' => env('PERFORMANCE_CDN_BASE_URL', 'https://cdn.midd.com'),
         'enable_asset_versioning' => env('PERFORMANCE_ENABLE_ASSET_VERSIONING', true),
         'enable_asset_minification' => env('PERFORMANCE_ENABLE_ASSET_MINIFICATION', true),
     ],

@@ -109,6 +109,19 @@ if (!function_exists('formatRut')) {
     }
 }
 
+if (!function_exists('sqliteMonthYear')) {
+    /**
+     * Generar condición SQL compatible con SQLite para comparar mes y año
+     */
+    function sqliteMonthYear(string $column, int $month, int $year): array
+    {
+        return [
+            "strftime('%m', {$column}) = ? AND strftime('%Y', {$column}) = ?",
+            [sprintf('%02d', $month), $year]
+        ];
+    }
+}
+
 if (!function_exists('validateRut')) {
     /**
      * Validar RUT chileno
@@ -191,5 +204,42 @@ if (!function_exists('canUserAccess')) {
 
         // Verificar permiso
         return auth()->user()->can($permission);
+    }
+}
+
+if (!function_exists('isDemo')) {
+    /**
+     * Verificar si estamos en entorno de demo
+     */
+    function isDemo(): bool
+    {
+        return config('demo.active', false) || 
+               str_contains(request()->getHost(), 'demo.') ||
+               app()->environment('demo');
+    }
+}
+
+if (!function_exists('isDemoRequest')) {
+    /**
+     * Verificar si la request actual es de demo
+     */
+    function isDemoRequest($request = null): bool
+    {
+        $request = $request ?? request();
+        return $request->attributes->get('is_demo', false);
+    }
+}
+
+if (!function_exists('demoWatermark')) {
+    /**
+     * Agregar watermark de demo si aplica
+     */
+    function demoWatermark(string $content): string
+    {
+        if (!isDemo()) {
+            return $content;
+        }
+        
+        return $content . "\n\n[DEMO - No válido comercialmente]";
     }
 }

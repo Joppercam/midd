@@ -129,7 +129,7 @@ const props = defineProps({
 })
 
 const form = useForm({
-    system_name: props.settings?.system_name || 'CrecePyme',
+    system_name: props.settings?.system_name || 'MIDD',
     system_email: props.settings?.system_email || 'admin@crecepyme.com',
     maintenance_mode: props.settings?.maintenance_mode || false,
     registration_enabled: props.settings?.registration_enabled || true,

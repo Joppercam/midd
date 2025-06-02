@@ -77,10 +77,10 @@ class ExpenseController extends Controller
             ->selectRaw("
                 SUM(CASE WHEN status NOT IN ('cancelled', 'draft') THEN total_amount ELSE 0 END) as total_amount,
                 SUM(CASE WHEN status = 'pending' THEN balance ELSE 0 END) as pending_amount,
-                SUM(CASE WHEN status NOT IN ('cancelled', 'draft') AND MONTH(issue_date) = ? AND YEAR(issue_date) = ? THEN total_amount ELSE 0 END) as this_month,
-                SUM(CASE WHEN status = 'pending' AND due_date < NOW() THEN balance ELSE 0 END) as overdue_amount,
-                SUM(CASE WHEN status NOT IN ('cancelled', 'draft') AND MONTH(issue_date) = ? AND YEAR(issue_date) = ? THEN tax_amount ELSE 0 END) as tax_credit
-            ", [$currentMonth, $currentYear, $currentMonth, $currentYear])
+                SUM(CASE WHEN status NOT IN ('cancelled', 'draft') AND strftime('%m', issue_date) = ? AND strftime('%Y', issue_date) = ? THEN total_amount ELSE 0 END) as this_month,
+                SUM(CASE WHEN status = 'pending' AND due_date < datetime('now') THEN balance ELSE 0 END) as overdue_amount,
+                SUM(CASE WHEN status NOT IN ('cancelled', 'draft') AND strftime('%m', issue_date) = ? AND strftime('%Y', issue_date) = ? THEN tax_amount ELSE 0 END) as tax_credit
+            ", [sprintf('%02d', $currentMonth), (string)$currentYear, sprintf('%02d', $currentMonth), (string)$currentYear])
             ->first()
             ->toArray();
 

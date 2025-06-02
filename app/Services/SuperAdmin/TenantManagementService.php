@@ -90,11 +90,11 @@ class TenantManagementService
             ],
             'documents' => [
                 'current' => $tenant->taxDocuments()
-                    ->whereRaw("DATE_FORMAT(created_at, '%Y-%m') = ?", [$currentMonth])
+                    ->whereRaw("strftime('%Y-%m', created_at) = ?", [$currentMonth])
                     ->count(),
                 'limit' => $tenant->max_documents_per_month,
                 'percentage' => ($tenant->taxDocuments()
-                    ->whereRaw("DATE_FORMAT(created_at, '%Y-%m') = ?", [$currentMonth])
+                    ->whereRaw("strftime('%Y-%m', created_at) = ?", [$currentMonth])
                     ->count() / $tenant->max_documents_per_month) * 100,
             ],
             'products' => [

@@ -18,7 +18,7 @@ class ReportController extends Controller
 
     public function __construct(ReportService $reportService)
     {
-        $this->middleware(['auth', 'tenant']);
+        $this->middleware('auth');
         $this->reportService = $reportService;
     }
 
@@ -28,13 +28,13 @@ class ReportController extends Controller
     public function index()
     {
         $templates = ReportTemplate::active()->get();
-        $recentExecutions = ReportExecution::where('tenant_id', tenant()->id)
+        $recentExecutions = ReportExecution::where('tenant_id', auth()->user()->tenant_id)
             ->with(['reportTemplate', 'user'])
             ->latest()
             ->limit(10)
             ->get();
         
-        $scheduledReports = ScheduledReport::where('tenant_id', tenant()->id)
+        $scheduledReports = ScheduledReport::where('tenant_id', auth()->user()->tenant_id)
             ->with(['reportTemplate'])
             ->latest()
             ->limit(5)
@@ -109,7 +109,7 @@ class ReportController extends Controller
      */
     public function scheduled()
     {
-        $scheduledReports = ScheduledReport::where('tenant_id', tenant()->id)
+        $scheduledReports = ScheduledReport::where('tenant_id', auth()->user()->tenant_id)
             ->with(['reportTemplate', 'user', 'lastExecution'])
             ->withCount(['reportExecutions', 'successfulExecutions', 'failedExecutions'])
             ->latest()
@@ -243,7 +243,7 @@ class ReportController extends Controller
      */
     public function executions()
     {
-        $executions = ReportExecution::where('tenant_id', tenant()->id)
+        $executions = ReportExecution::where('tenant_id', auth()->user()->tenant_id)
             ->with(['reportTemplate', 'scheduledReport', 'user'])
             ->latest()
             ->paginate(20);

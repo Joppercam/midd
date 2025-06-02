@@ -22,14 +22,14 @@ class CompanySettingsController extends Controller
     {
         $this->checkPermission('settings.view');
         
-        $tenant = Tenant::find(session('tenant_id'));
+        $tenant = Tenant::find(auth()->user()->tenant_id);
         
         if (!$tenant) {
             return redirect()->route('dashboard')
                 ->with('error', 'No se encontró la información de la empresa.');
         }
 
-        return Inertia::render('Core/Settings/CompanySettings', [
+        return Inertia::render('Settings/CompanySettings', [
             'tenant' => $tenant,
             'industries' => $this->getIndustries(),
             'taxRegimes' => $this->getTaxRegimes(),
@@ -45,13 +45,13 @@ class CompanySettingsController extends Controller
     {
         $this->checkPermission('settings.edit');
         
-        $tenant = Tenant::find(session('tenant_id'));
+        $tenant = Tenant::find(auth()->user()->tenant_id);
 
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'legal_name' => 'nullable|string|max:255',
             'trade_name' => 'nullable|string|max:255',
-            'tax_id' => 'required|string|max:20',
+            'rut' => 'required|string|max:20',
             'industry' => 'nullable|string|max:100',
             'website' => 'nullable|url|max:255',
             'email' => 'required|email|max:255',
@@ -68,33 +68,25 @@ class CompanySettingsController extends Controller
     {
         $this->checkPermission('settings.edit');
         
-        $tenant = Tenant::find(session('tenant_id'));
+        $tenant = Tenant::find(auth()->user()->tenant_id);
 
         $validated = $request->validate([
-            'address' => 'required|string|max:255',
-            'city' => 'required|string|max:100',
-            'state' => 'required|string|max:100',
-            'postal_code' => 'nullable|string|max:20',
-            'country' => 'required|string|max:100',
+            'commune' => 'required|string|max:100',
         ]);
 
         $tenant->update($validated);
 
-        return back()->with('success', 'Dirección actualizada correctamente.');
+        return back()->with('success', 'Ubicación actualizada correctamente.');
     }
 
     public function updateFiscalInfo(Request $request)
     {
         $this->checkPermission('settings.edit');
         
-        $tenant = Tenant::find(session('tenant_id'));
+        $tenant = Tenant::find(auth()->user()->tenant_id);
 
         $validated = $request->validate([
-            'tax_regime' => 'required|string|max:100',
-            'economic_activity' => 'required|string|max:255',
-            'economic_activity_code' => 'required|string|max:20',
-            'is_holding' => 'boolean',
-            'uses_branch_offices' => 'boolean',
+            'business_activity' => 'required|string|max:255',
             'branch_code' => 'nullable|string|max:20',
             'fiscal_year_start_month' => 'required|integer|min:1|max:12',
         ]);
@@ -108,7 +100,7 @@ class CompanySettingsController extends Controller
     {
         $this->checkPermission('settings.edit');
         
-        $tenant = Tenant::find(session('tenant_id'));
+        $tenant = Tenant::find(auth()->user()->tenant_id);
 
         $request->validate([
             'logo' => 'required|image|mimes:jpeg,png,jpg,svg|max:2048',
@@ -131,7 +123,7 @@ class CompanySettingsController extends Controller
     {
         $this->checkPermission('settings.edit');
         
-        $tenant = Tenant::find(session('tenant_id'));
+        $tenant = Tenant::find(auth()->user()->tenant_id);
 
         if ($tenant->logo_path) {
             Storage::disk('public')->delete($tenant->logo_path);
@@ -145,7 +137,7 @@ class CompanySettingsController extends Controller
     {
         $this->checkPermission('settings.edit');
         
-        $tenant = Tenant::find(session('tenant_id'));
+        $tenant = Tenant::find(auth()->user()->tenant_id);
 
         $validated = $request->validate([
             'primary_color' => 'required|string|regex:/^#[0-9A-Fa-f]{6}$/',
@@ -161,7 +153,7 @@ class CompanySettingsController extends Controller
     {
         $this->checkPermission('settings.edit');
         
-        $tenant = Tenant::find(session('tenant_id'));
+        $tenant = Tenant::find(auth()->user()->tenant_id);
 
         $validated = $request->validate([
             'invoice_settings' => 'required|array',
@@ -185,7 +177,7 @@ class CompanySettingsController extends Controller
     {
         $this->checkPermission('settings.edit');
         
-        $tenant = Tenant::find(session('tenant_id'));
+        $tenant = Tenant::find(auth()->user()->tenant_id);
 
         $validated = $request->validate([
             'email_settings' => 'required|array',
@@ -212,7 +204,7 @@ class CompanySettingsController extends Controller
     {
         $this->checkPermission('settings.edit');
         
-        $tenant = Tenant::find(session('tenant_id'));
+        $tenant = Tenant::find(auth()->user()->tenant_id);
 
         $validated = $request->validate([
             'currency' => 'required|string|size:3',

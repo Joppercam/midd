@@ -25,7 +25,7 @@ class SecurityHeaders
         'Referrer-Policy' => 'strict-origin-when-cross-origin',
         
         // Remove server info
-        'Server' => 'CrecePyme',
+        'Server' => 'MIDD',
         
         // Permissions Policy (formerly Feature Policy)
         'Permissions-Policy' => 'camera=(), microphone=(), geolocation=(self), payment=()',

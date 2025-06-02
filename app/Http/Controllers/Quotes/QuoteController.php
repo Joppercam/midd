@@ -20,7 +20,10 @@ class QuoteController extends Controller
     {
         $this->checkPermission('quotes.view');
 
+        $tenantId = auth()->user()->tenant_id;
+
         $quotes = Quote::with(['customer', 'user'])
+            ->where('tenant_id', $tenantId)
             ->when($request->search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('quote_number', 'like', "%{$search}%")
@@ -43,16 +46,19 @@ class QuoteController extends Controller
             ->paginate(15)
             ->withQueryString();
 
+        // Estadísticas filtradas por tenant
+        $stats = [
+            'total' => Quote::where('tenant_id', $tenantId)->count(),
+            'draft' => Quote::where('tenant_id', $tenantId)->where('status', 'draft')->count(),
+            'sent' => Quote::where('tenant_id', $tenantId)->where('status', 'sent')->count(),
+            'approved' => Quote::where('tenant_id', $tenantId)->where('status', 'approved')->count(),
+            'expired' => 0, // Temporalmente 0 hasta verificar si existe el scope 'expired'
+        ];
+
         return Inertia::render('Quotes/Index', [
             'quotes' => $quotes,
             'filters' => $request->only(['search', 'status', 'date_from', 'date_to']),
-            'stats' => [
-                'total' => Quote::count(),
-                'draft' => Quote::where('status', 'draft')->count(),
-                'sent' => Quote::where('status', 'sent')->count(),
-                'approved' => Quote::where('status', 'approved')->count(),
-                'expired' => Quote::expired()->count(),
-            ],
+            'stats' => $stats,
         ]);
     }
 

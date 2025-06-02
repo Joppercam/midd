@@ -17,7 +17,7 @@ class TenantFactory extends Factory
         return [
             'name' => $this->faker->company(),
             'rut' => $rut . '-' . $dv,
-            'domain' => $this->faker->slug() . '.crecepyme.com',
+            'domain' => $this->faker->slug() . '.midd.com',
             'subscription_plan' => $this->faker->randomElement(['trial', 'basic', 'professional', 'enterprise']),
             'subscription_status' => $this->faker->randomElement(['trial', 'active', 'suspended']),
             'trial_ends_at' => $this->faker->optional()->dateTimeBetween('now', '+30 days')

@@ -75,6 +75,11 @@ class Tenant extends Model
         'storage_used',
         'max_storage',
         'storage_last_calculated_at',
+        'api_rate_limit',
+        'webhook_url',
+        'webhook_secret',
+        'enable_webhooks',
+        'api_documentation_public',
     ];
 
     protected $casts = [
@@ -98,6 +103,9 @@ class Tenant extends Model
         'storage_used' => 'integer',
         'max_storage' => 'integer',
         'storage_last_calculated_at' => 'datetime',
+        'api_rate_limit' => 'integer',
+        'enable_webhooks' => 'boolean',
+        'api_documentation_public' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
@@ -189,7 +197,7 @@ class Tenant extends Model
     {
         $currentMonth = now()->format('Y-m');
         $documentsThisMonth = $this->taxDocuments()
-            ->whereRaw("DATE_FORMAT(created_at, '%Y-%m') = ?", [$currentMonth])
+            ->whereRaw("strftime('%Y-%m', created_at) = ?", [$currentMonth])
             ->count();
         
         return $documentsThisMonth < $this->max_documents_per_month;
@@ -247,7 +255,7 @@ class Tenant extends Model
         return [
             'users' => $this->users()->count(),
             'documents_this_month' => $this->taxDocuments()
-                ->whereRaw("DATE_FORMAT(created_at, '%Y-%m') = ?", [$currentMonth])
+                ->whereRaw("strftime('%Y-%m', created_at) = ?", [$currentMonth])
                 ->count(),
             'products' => $this->products()->count(),
             'customers' => $this->customers()->count(),

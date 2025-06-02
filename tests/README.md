@@ -1,6 +1,6 @@
-# Tests - CrecePyme
+# Tests - MIDD
 
-Esta documentación describe la estructura y estrategia de testing del proyecto CrecePyme.
+Esta documentación describe la estructura y estrategia de testing del proyecto MIDD.
 
 ## Estructura de Tests
 

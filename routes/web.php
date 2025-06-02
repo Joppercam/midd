@@ -1,6 +1,18 @@
 <?php
 
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Customers\CustomerController;
+use App\Http\Controllers\Products\ProductController;
+use App\Http\Controllers\Payments\PaymentController;
+use App\Http\Controllers\Suppliers\SupplierController;
+use App\Http\Controllers\Expenses\ExpenseController;
+use App\Http\Controllers\BankReconciliationController;
+use App\Http\Controllers\PurchaseOrders\PurchaseOrderController;
+use App\Http\Controllers\HRM\EmployeeController;
+use App\Http\Controllers\HRM\PayrollController;
+use App\Http\Controllers\HRM\AttendanceController;
+use App\Http\Controllers\HRM\LeaveController;
+use App\Http\Controllers\POS\POSController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -17,7 +29,47 @@ Route::get('/', function () {
     return redirect()->route('dashboard');
 });
 
-Route::middleware(['auth', 'verified', '2fa'])->group(function () {
+// Ruta de diagnóstico temporal
+Route::get('/debug-auth', function () {
+    $user = auth()->user();
+    if (!$user) {
+        return response()->json(['status' => 'not_authenticated']);
+    }
+    
+    return response()->json([
+        'status' => 'authenticated',
+        'user' => [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => $user->role,
+            'is_admin' => $user->isAdmin(),
+            'custom_permissions' => $user->custom_permissions,
+            'tenant_id' => $user->tenant_id,
+        ]
+    ]);
+})->name('debug.auth');
+
+// Demo Request Route (public)
+Route::post('/demo-request', [App\Http\Controllers\DemoRequestController::class, 'store'])->name('demo-request.store');
+
+// Demo Routes (public)
+Route::prefix('demo')->name('demo.')->group(function () {
+    Route::get('/', [App\Http\Controllers\DemoController::class, 'landing'])->name('landing');
+    Route::post('/start', [App\Http\Controllers\DemoController::class, 'start'])->name('start');
+    Route::get('/expired', [App\Http\Controllers\DemoController::class, 'expired'])->name('expired');
+    Route::get('/feedback/{session}', [App\Http\Controllers\DemoController::class, 'feedback'])->name('feedback');
+    Route::post('/feedback', [App\Http\Controllers\DemoController::class, 'submitFeedback'])->name('feedback.submit');
+    
+    // Demo authenticated routes
+    Route::middleware(['auth'])->group(function () {
+        Route::get('/{sessionId}', [App\Http\Controllers\DemoController::class, 'dashboard'])->name('dashboard');
+        Route::post('/{sessionId}/extend', [App\Http\Controllers\DemoController::class, 'extend'])->name('extend');
+        Route::post('/{sessionId}/end', [App\Http\Controllers\DemoController::class, 'end'])->name('end');
+    });
+});
+
+Route::middleware(['auth', 'verified'])->group(function () {
     // Core Module Routes
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::get('/dashboard/admin', [DashboardController::class, 'admin'])->name('dashboard.admin');
@@ -52,21 +104,117 @@ Route::middleware(['auth', 'verified', '2fa'])->group(function () {
         Route::get('/config', [App\Http\Controllers\RealTimeNotificationController::class, 'getConfiguration'])->name('config');
     });
     
+    // Customers
+    Route::resource('customers', CustomerController::class);
+    
+    // Products
+    Route::resource('products', ProductController::class);
+    
+    // Payments
+    Route::resource('payments', PaymentController::class);
+    
+    // Suppliers
+    Route::resource('suppliers', SupplierController::class);
+    
+    // Expenses
+    Route::resource('expenses', ExpenseController::class);
+    
+    // Banking & Bank Reconciliation
+    Route::prefix('banking')->name('banking.')->group(function () {
+        Route::get('/', [BankReconciliationController::class, 'index'])->name('index');
+        Route::resource('reconciliations', BankReconciliationController::class);
+    });
+    
+    // Purchase Orders
+    Route::resource('purchase-orders', PurchaseOrderController::class);
+    
+    // HRM (Human Resource Management) - Básico por ahora
+    Route::prefix('hrm')->name('hrm.')->group(function () {
+        Route::resource('employees', EmployeeController::class);
+        
+        // Payroll Management
+        Route::prefix('payroll')->name('payroll.')->group(function () {
+            Route::get('/', [PayrollController::class, 'index'])->name('index');
+            Route::get('/create', [PayrollController::class, 'create'])->name('create');
+            Route::post('/', [PayrollController::class, 'store'])->name('store');
+            Route::get('/{period}', [PayrollController::class, 'show'])->name('show');
+            Route::post('/{period}/calculate', [PayrollController::class, 'calculate'])->name('calculate');
+            Route::post('/{period}/approve', [PayrollController::class, 'approve'])->name('approve');
+            Route::post('/{period}/mark-paid', [PayrollController::class, 'markPaid'])->name('mark-paid');
+            Route::post('/{period}/bulk-action', [PayrollController::class, 'bulkAction'])->name('bulk-action');
+            Route::post('/create-monthly', [PayrollController::class, 'createMonthly'])->name('create-monthly');
+            Route::get('/reports/summary', [PayrollController::class, 'reports'])->name('reports');
+            
+            // Individual payslips
+            Route::get('/payslips/{payslip}', [PayrollController::class, 'showPayslip'])->name('payslips.show');
+            Route::get('/payslips/{payslip}/download', [PayrollController::class, 'downloadPayslip'])->name('payslips.download');
+            Route::post('/payslips/{payslip}/recalculate', [PayrollController::class, 'recalculatePayslip'])->name('payslips.recalculate');
+            
+            // Employee self-service
+            Route::get('/my-payslips', [PayrollController::class, 'myPayslips'])->name('my-payslips');
+        });
+        
+        // Attendance Management
+        Route::prefix('attendance')->name('attendance.')->group(function () {
+            Route::get('/', [AttendanceController::class, 'index'])->name('index');
+            Route::post('/check-in', [AttendanceController::class, 'checkIn'])->name('check-in');
+            Route::post('/check-out', [AttendanceController::class, 'checkOut'])->name('check-out');
+            Route::post('/mark-absent', [AttendanceController::class, 'markAbsent'])->name('mark-absent');
+            Route::post('/mark', [AttendanceController::class, 'checkIn'])->name('mark'); // Alias for compatibility
+            Route::get('/{attendance}', [AttendanceController::class, 'show'])->name('show');
+            Route::get('/{attendance}/edit', [AttendanceController::class, 'edit'])->name('edit');
+            Route::put('/{attendance}', [AttendanceController::class, 'update'])->name('update');
+            Route::get('/reports/monthly', [AttendanceController::class, 'reports'])->name('reports');
+            Route::get('/self-service', [AttendanceController::class, 'selfService'])->name('self-service');
+        });
+        
+        // Leave Management
+        Route::prefix('leaves')->name('leaves.')->group(function () {
+            Route::get('/', [LeaveController::class, 'index'])->name('index');
+            Route::get('/create', [LeaveController::class, 'create'])->name('create');
+            Route::post('/', [LeaveController::class, 'store'])->name('store');
+            Route::get('/{leave}', [LeaveController::class, 'show'])->name('show');
+            Route::post('/{leave}/approve', [LeaveController::class, 'approve'])->name('approve');
+            Route::post('/{leave}/reject', [LeaveController::class, 'reject'])->name('reject');
+            Route::post('/{leave}/cancel', [LeaveController::class, 'cancel'])->name('cancel');
+            Route::get('/balance/{employee?}', [LeaveController::class, 'balance'])->name('balance');
+            Route::get('/calendar/view', [LeaveController::class, 'calendar'])->name('calendar');
+        });
+    });
+    
+    // POS (Point of Sale)
+    Route::prefix('pos')->name('pos.')->group(function () {
+        Route::prefix('terminal')->name('terminal.')->group(function () {
+            Route::get('/', [POSController::class, 'index'])->name('index');
+            Route::post('/sale', [POSController::class, 'sale'])->name('sale');
+            Route::get('/search-products', [POSController::class, 'searchProducts'])->name('search-products');
+            Route::get('/search-customers', [POSController::class, 'searchCustomers'])->name('search-customers');
+            Route::get('/products-by-category/{categoryId?}', [POSController::class, 'productsByCategory'])->name('products-by-category');
+        });
+        
+        Route::prefix('sales')->name('sales.')->group(function () {
+            Route::get('/', [POSController::class, 'sales'])->name('index');
+            Route::post('/', function () { return response('Coming soon - Store'); })->name('store');
+            Route::get('/{sale}', function () { return response('Coming soon - Show'); })->name('show');
+            Route::get('/{sale}/receipt', function () { return response('Coming soon - Receipt'); })->name('receipt');
+            Route::post('/{sale}/refund', function () { return response('Coming soon - Refund'); })->name('refund');
+            Route::get('/export', function () { return response('Coming soon - Export'); })->name('export');
+        });
+        
+        Route::prefix('cash-register')->name('cash-register.')->group(function () {
+            Route::get('/', [POSController::class, 'cashRegister'])->name('index');
+        });
+    });
+    
+    // Company Settings placeholder
+    Route::get('/company-settings', function () { return response('Coming soon'); })->name('company-settings.index');
+    
     // Facturación
     Route::resource('invoices', App\Http\Controllers\Billing\InvoiceController::class);
     Route::post('/invoices/{invoice}/send', [App\Http\Controllers\Billing\InvoiceController::class, 'send'])->name('invoices.send');
     Route::get('/invoices/{invoice}/download', [App\Http\Controllers\Billing\InvoiceController::class, 'download'])->name('invoices.download');
     
-    // SII Integration
-    Route::prefix('sii')->name('sii.')->group(function () {
-        Route::get('/configuration', [App\Http\Controllers\SII\SIIController::class, 'configuration'])->name('configuration');
-        Route::put('/configuration', [App\Http\Controllers\SII\SIIController::class, 'updateConfiguration'])->name('configuration.update');
-        Route::post('/certificate/upload', [App\Http\Controllers\SII\SIIController::class, 'uploadCertificate'])->name('certificate.upload');
-        Route::post('/send/{taxDocument}', [App\Http\Controllers\SII\SIIController::class, 'send'])->name('send');
-        Route::post('/batch-send', [App\Http\Controllers\SII\SIIController::class, 'batchSend'])->name('batch-send');
-        Route::get('/status/{taxDocument}', [App\Http\Controllers\SII\SIIController::class, 'checkStatus'])->name('check-status');
-        Route::post('/test-connection', [App\Http\Controllers\SII\SIIController::class, 'testConnection'])->name('test-connection');
-    });
+    // SII Integration - Las rutas SII están en routes/sii.php
     
     
     
@@ -109,6 +257,9 @@ Route::middleware(['auth', 'verified', '2fa'])->group(function () {
         Route::get('/taxes', [App\Http\Controllers\Reports\ReportController::class, 'taxes'])->name('taxes');
         Route::get('/inventory', [App\Http\Controllers\Reports\ReportController::class, 'inventory'])->name('inventory');
         Route::get('/customer-balance', [App\Http\Controllers\Reports\ReportController::class, 'customerBalance'])->name('customer-balance');
+        Route::get('/cash-flow', [App\Http\Controllers\Reports\ReportController::class, 'cashFlow'])->name('cash-flow');
+        Route::get('/profitability', [App\Http\Controllers\Reports\ReportController::class, 'profitability'])->name('profitability');
+        Route::get('/expenses-and-purchases', [App\Http\Controllers\Reports\ReportController::class, 'expensesAndPurchases'])->name('expenses-and-purchases');
     });
     
     // Exportaciones Contables
@@ -153,6 +304,16 @@ Route::middleware(['auth', 'verified', '2fa'])->group(function () {
         Route::delete('/schedules/{schedule}', [CoreBackupController::class, 'deleteSchedule'])->name('schedule.delete');
     });
     
+    // Demo Management (Admin only)
+    Route::prefix('admin/demo-management')->name('admin.demo.')->middleware(['auth', 'verified'])->group(function () {
+        Route::get('/', [App\Http\Controllers\Admin\DemoManagementController::class, 'index'])->name('index');
+        Route::get('/{demoRequest}', [App\Http\Controllers\Admin\DemoManagementController::class, 'show'])->name('show');
+        Route::put('/{demoRequest}/status', [App\Http\Controllers\Admin\DemoManagementController::class, 'updateStatus'])->name('update-status');
+        Route::post('/{demoRequest}/generate-credentials', [App\Http\Controllers\Admin\DemoManagementController::class, 'generateCredentials'])->name('generate-credentials');
+        Route::post('/{demoRequest}/notes', [App\Http\Controllers\Admin\DemoManagementController::class, 'addNote'])->name('add-note');
+        Route::put('/{demoRequest}/assign', [App\Http\Controllers\Admin\DemoManagementController::class, 'assignTo'])->name('assign');
+    });
+    
     // Audit Logs
     Route::prefix('audit')->name('audit.')->group(function () {
         Route::get('/', [CoreAuditController::class, 'index'])->name('index');
@@ -160,6 +321,19 @@ Route::middleware(['auth', 'verified', '2fa'])->group(function () {
         Route::get('/settings', [CoreAuditController::class, 'settings'])->name('settings');
         Route::post('/settings', [CoreAuditController::class, 'updateSettings'])->name('settings.update');
         Route::get('/report', [CoreAuditController::class, 'report'])->name('report');
+    });
+    
+    // API Management
+    Route::prefix('api-management')->name('api-management.')->group(function () {
+        Route::get('/', [App\Modules\Core\Controllers\ApiManagementController::class, 'index'])->name('index');
+        Route::post('/tokens', [App\Modules\Core\Controllers\ApiManagementController::class, 'createToken'])->name('tokens.create');
+        Route::put('/tokens/{id}', [App\Modules\Core\Controllers\ApiManagementController::class, 'updateToken'])->name('tokens.update');
+        Route::delete('/tokens/{id}', [App\Modules\Core\Controllers\ApiManagementController::class, 'deleteToken'])->name('tokens.delete');
+        Route::post('/tokens/{id}/regenerate', [App\Modules\Core\Controllers\ApiManagementController::class, 'regenerateToken'])->name('tokens.regenerate');
+        Route::get('/logs', [App\Modules\Core\Controllers\ApiManagementController::class, 'getLogs'])->name('logs');
+        Route::get('/usage-stats', [App\Modules\Core\Controllers\ApiManagementController::class, 'getUsageStats'])->name('usage-stats');
+        Route::get('/settings', [App\Modules\Core\Controllers\ApiManagementController::class, 'settings'])->name('settings');
+        Route::post('/settings', [App\Modules\Core\Controllers\ApiManagementController::class, 'updateSettings'])->name('settings.update');
     });
     
     // Notifications

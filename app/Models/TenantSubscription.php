@@ -159,8 +159,17 @@ class TenantSubscription extends Model
      */
     public function getAllIncludedModules(): array
     {
-        $planModules = $this->plan->included_modules ?? [];
+        // Ensure we get arrays, not Collections
+        $planModules = $this->plan ? ($this->plan->included_modules ?? []) : [];
         $customModules = $this->custom_modules ?? [];
+
+        // Convert to arrays if they're Collections
+        if ($planModules instanceof \Illuminate\Support\Collection) {
+            $planModules = $planModules->toArray();
+        }
+        if ($customModules instanceof \Illuminate\Support\Collection) {
+            $customModules = $customModules->toArray();
+        }
 
         return array_unique(array_merge($planModules, $customModules));
     }

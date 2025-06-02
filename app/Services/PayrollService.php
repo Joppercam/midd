@@ -13,11 +13,20 @@ use Illuminate\Support\Collection;
 
 class PayrollService
 {
-    protected PayrollSettings $settings;
+    protected ?PayrollSettings $settings = null;
 
     public function __construct()
     {
-        $this->settings = $this->getPayrollSettings();
+        // Settings will be loaded when needed
+    }
+    
+    protected function getSettings(): PayrollSettings
+    {
+        if ($this->settings === null) {
+            $this->settings = $this->getPayrollSettings();
+        }
+        
+        return $this->settings;
     }
 
     /**
@@ -137,7 +146,7 @@ class PayrollService
 
         // Overtime pay
         $hourlyRate = $contract->hourly_rate;
-        $overtimePay = $attendanceData['overtime_hours'] * $hourlyRate * $this->settings->overtime_rate;
+        $overtimePay = $attendanceData['overtime_hours'] * $hourlyRate * $this->getSettings()->overtime_rate;
 
         // Allowances
         $familyAllowance = $this->calculateFamilyAllowance($employee);
@@ -172,13 +181,13 @@ class PayrollService
     protected function calculateDeductions(Employee $employee, EmploymentContract $contract, float $grossPay): array
     {
         // Pension deduction (AFP)
-        $pensionDeduction = $grossPay * $this->settings->pension_rate;
+        $pensionDeduction = $grossPay * $this->getSettings()->pension_rate;
 
         // Health deduction
-        $healthDeduction = $grossPay * $this->settings->health_rate;
+        $healthDeduction = $grossPay * $this->getSettings()->health_rate;
 
         // Unemployment insurance
-        $unemploymentInsurance = $grossPay * $this->settings->unemployment_rate;
+        $unemploymentInsurance = $grossPay * $this->getSettings()->unemployment_rate;
 
         // Income tax
         $incomeTax = $this->calculateIncomeTax($grossPay);
@@ -206,7 +215,7 @@ class PayrollService
     {
         // In Chile, family allowance is based on number of dependents and income level
         // This is a simplified calculation
-        return $this->settings->family_allowance_amount ?? 0;
+        return $this->getSettings()->family_allowance_amount ?? 0;
     }
 
     /**
@@ -267,7 +276,7 @@ class PayrollService
      */
     protected function calculateIncomeTax(float $grossPay): float
     {
-        $taxBrackets = $this->settings->tax_brackets ?? $this->getDefaultTaxBrackets();
+        $taxBrackets = $this->getSettings()->tax_brackets ?? $this->getDefaultTaxBrackets();
         $tax = 0;
         $remainingIncome = $grossPay;
 
@@ -300,10 +309,14 @@ class PayrollService
      */
     protected function getPayrollSettings(): PayrollSettings
     {
-        $tenant = tenant();
+        $tenantId = auth()->user()->tenant_id ?? null;
+        
+        if (!$tenantId) {
+            throw new \Exception('No se pudo determinar el tenant ID para configurar la nómina');
+        }
         
         return PayrollSettings::firstOrCreate(
-            ['tenant_id' => $tenant->id],
+            ['tenant_id' => $tenantId],
             [
                 'pension_rate' => 0.1000, // 10%
                 'health_rate' => 0.0700,  // 7%

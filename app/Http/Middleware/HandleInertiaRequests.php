@@ -70,21 +70,23 @@ class HandleInertiaRequests extends Middleware
                 $tenant->updateLastActivity();
             }
             
-            // Por ahora, simplificar los roles y permisos
-            // hasta que se arregle la integración con Spatie
-            $userRoles = [];
-            $userPermissions = [];
+            // Obtener roles y permisos del usuario
+            $userRoles = [$user->role ?? 'user'];
+            // Use custom_permissions attribute instead of permissions relationship
+            $userPermissions = $user->custom_permissions ?? [];
             
             if ($user->isAdmin()) {
-                $userRoles = ['admin'];
                 // Dar todos los permisos básicos al admin
-                $userPermissions = [
+                $userPermissions = array_merge($userPermissions, [
                     'dashboard.view',
                     'customers.view', 'customers.create', 'customers.update', 'customers.delete',
                     'products.view', 'products.create', 'products.update', 'products.delete',
                     'invoices.view', 'invoices.create', 'invoices.update', 'invoices.delete',
+                    'quotes.view', 'quotes.create', 'quotes.update', 'quotes.delete',
+                    'reports.view', 'payments.view', 'expenses.view',
                     // Agregar más según sea necesario
-                ];
+                    '*' // Acceso completo para admin
+                ]);
             }
         }
 
@@ -95,6 +97,7 @@ class HandleInertiaRequests extends Middleware
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    'role' => $user->role,
                     'roles' => $userRoles,
                     'permissions' => $userPermissions,
                     'tenant' => $tenant ? [

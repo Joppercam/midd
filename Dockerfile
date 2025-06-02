@@ -22,17 +22,17 @@ RUN docker-php-ext-install pdo pdo_pgsql mbstring exif pcntl bcmath gd zip
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 # Create system user
-RUN useradd -G www-data,root -u 1000 -d /home/crecepyme crecepyme
-RUN mkdir -p /home/crecepyme/.composer && \
-    chown -R crecepyme:crecepyme /home/crecepyme
+RUN useradd -G www-data,root -u 1000 -d /home/midd midd
+RUN mkdir -p /home/midd/.composer && \
+    chown -R midd:midd /home/midd
 
 # Set working directory
 WORKDIR /var/www
 
 COPY . /var/www
-COPY --chown=crecepyme:crecepyme . /var/www
+COPY --chown=midd:midd . /var/www
 
-USER crecepyme
+USER midd
 
 EXPOSE 9000
 CMD ["php-fpm"]

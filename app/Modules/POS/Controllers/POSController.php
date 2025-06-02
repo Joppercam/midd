@@ -17,7 +17,7 @@ class POSController extends Controller
 
     public function __construct(POSService $posService)
     {
-        $this->middleware('permission:pos.operate');
+        $this->middleware('permission:pos.terminal.access');
         $this->posService = $posService;
     }
 

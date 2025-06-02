@@ -1,8 +1,8 @@
-# Documentación de Seguridad - CrecePyme
+# Documentación de Seguridad - MIDD
 
 ## Resumen
 
-CrecePyme implementa múltiples capas de seguridad para proteger la aplicación y los datos de los usuarios contra amenazas comunes. Esta documentación describe las medidas de seguridad implementadas y cómo funcionan.
+MIDD implementa múltiples capas de seguridad para proteger la aplicación y los datos de los usuarios contra amenazas comunes. Esta documentación describe las medidas de seguridad implementadas y cómo funcionan.
 
 ## Arquitectura de Seguridad
 

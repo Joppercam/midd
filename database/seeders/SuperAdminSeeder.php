@@ -25,7 +25,7 @@ class SuperAdminSeeder extends Seeder
         // Create default system settings
         $defaultSettings = [
             // General Settings
-            ['key' => 'app_name', 'value' => 'CrecePyme', 'type' => 'string', 'category' => 'general', 'description' => 'Application name', 'is_public' => true],
+            ['key' => 'app_name', 'value' => 'MIDD', 'type' => 'string', 'category' => 'general', 'description' => 'Application name', 'is_public' => true],
             ['key' => 'app_url', 'value' => config('app.url'), 'type' => 'string', 'category' => 'general', 'description' => 'Application URL', 'is_public' => true],
             ['key' => 'maintenance_mode', 'value' => 'false', 'type' => 'boolean', 'category' => 'general', 'description' => 'Enable maintenance mode', 'is_public' => false],
             

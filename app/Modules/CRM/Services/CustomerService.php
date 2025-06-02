@@ -17,7 +17,7 @@ class CustomerService
     {
         $query = Customer::where('tenant_id', auth()->user()->tenant_id);
 
-        // Búsqueda
+        // Bï¿½squeda
         if (!empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
@@ -33,7 +33,7 @@ class CustomerService
             $query->where('type', $filters['type']);
         }
 
-        // Filtro por categoría
+        // Filtro por categorï¿½a
         if (!empty($filters['category'])) {
             $query->where('category', $filters['category']);
         }
@@ -43,7 +43,7 @@ class CustomerService
         $sortDirection = $filters['direction'] ?? 'asc';
         $query->orderBy($sortField, $sortDirection);
 
-        // Incluir estadísticas
+        // Incluir estadï¿½sticas
         $query->withCount('taxDocuments')
               ->withSum('taxDocuments', 'total');
 
@@ -54,14 +54,14 @@ class CustomerService
     {
         $tenantId = auth()->user()->tenant_id;
         
-        // Estadísticas optimizadas
+        // Estadï¿½sticas optimizadas
         $customerStats = Customer::where('tenant_id', $tenantId)
             ->selectRaw("
                 COUNT(*) as total_customers,
                 COUNT(CASE WHEN is_active = 1 THEN 1 END) as active_customers,
-                COUNT(CASE WHEN MONTH(created_at) = ? AND YEAR(created_at) = ? THEN 1 END) as new_this_month,
+                COUNT(CASE WHEN strftime('%m', created_at) = ? AND strftime('%Y', created_at) = ? THEN 1 END) as new_this_month,
                 COUNT(CASE WHEN category = 'premium' THEN 1 END) as premium_customers
-            ", [now()->month, now()->year])
+            ", [sprintf('%02d', now()->month), now()->year])
             ->first();
 
         $totalRevenue = DB::table('customers')
@@ -91,7 +91,7 @@ class CustomerService
         // Limpiar y formatear RUT
         $cleanRut = RutValidator::clean($data['rut']);
         
-        // Verificar RUT único dentro del tenant
+        // Verificar RUT ï¿½nico dentro del tenant
         $exists = Customer::where('tenant_id', auth()->user()->tenant_id)
             ->where('rut', $cleanRut)
             ->exists();
@@ -100,12 +100,12 @@ class CustomerService
             throw new \Exception('El RUT ya existe en tu empresa.');
         }
 
-        // Configurar categoría por defecto basada en el límite de crédito
+        // Configurar categorï¿½a por defecto basada en el lï¿½mite de crï¿½dito
         if (empty($data['category'])) {
             $data['category'] = $this->determineCategoryByRevenue($data['credit_limit'] ?? 0);
         }
 
-        // Reemplazar RUT con versión limpia
+        // Reemplazar RUT con versiï¿½n limpia
         $data['rut'] = $cleanRut;
         
         return Customer::create([
@@ -121,7 +121,7 @@ class CustomerService
         // Limpiar y formatear RUT
         $cleanRut = RutValidator::clean($data['rut']);
         
-        // Verificar RUT único dentro del tenant
+        // Verificar RUT ï¿½nico dentro del tenant
         $exists = Customer::where('tenant_id', auth()->user()->tenant_id)
             ->where('rut', $cleanRut)
             ->where('id', '!=', $customer->id)
@@ -131,7 +131,7 @@ class CustomerService
             throw new \Exception('El RUT ya existe en tu empresa.');
         }
         
-        // Reemplazar RUT con versión limpia
+        // Reemplazar RUT con versiï¿½n limpia
         $data['rut'] = $cleanRut;
         $data['updated_by'] = auth()->id();
 
@@ -175,7 +175,7 @@ class CustomerService
                   ->limit(10);
         }]);
 
-        // Estadísticas del cliente
+        // Estadï¿½sticas del cliente
         $stats = [
             'total_documents' => $customer->taxDocuments()->count(),
             'total_revenue' => $customer->taxDocuments()
@@ -199,7 +199,7 @@ class CustomerService
                 ->value('issue_date'),
         ];
 
-        // Productos más comprados
+        // Productos mï¿½s comprados
         $topProducts = DB::table('tax_document_items')
             ->join('tax_documents', 'tax_document_items.tax_document_id', '=', 'tax_documents.id')
             ->join('products', 'tax_document_items.product_id', '=', 'products.id')
@@ -274,7 +274,7 @@ class CustomerService
             return $a['date']->timestamp - $b['date']->timestamp;
         });
 
-        // Análisis de antigüedad
+        // Anï¿½lisis de antigï¿½edad
         $agingPeriods = config('crm.customer_statement.aging_periods', [30, 60, 90, 120]);
         $aging = $this->calculateAging($customer, $agingPeriods);
 
@@ -295,11 +295,11 @@ class CustomerService
 
     public function importCustomers(File $file, bool $updateExisting = false): array
     {
-        // Implementar lógica de importación
-        // Por ahora retornar un mensaje de éxito
+        // Implementar lï¿½gica de importaciï¿½n
+        // Por ahora retornar un mensaje de ï¿½xito
         return [
             'success' => true,
-            'message' => 'Importación completada exitosamente.'
+            'message' => 'Importaciï¿½n completada exitosamente.'
         ];
     }
 
@@ -315,7 +315,7 @@ class CustomerService
             // Transferir pagos
             $source->payments()->update(['customer_id' => $target->id]);
             
-            // Combinar información si está vacía en el target
+            // Combinar informaciï¿½n si estï¿½ vacï¿½a en el target
             $updateData = [];
             if (empty($target->email) && !empty($source->email)) {
                 $updateData['email'] = $source->email;
@@ -368,7 +368,7 @@ class CustomerService
     public function addCustomerNote(Customer $customer, string $note, string $type = 'general'): array
     {
         // Por ahora retornar un array simple
-        // En una implementación completa, esto sería un modelo separado
+        // En una implementaciï¿½n completa, esto serï¿½a un modelo separado
         return [
             'id' => uniqid(),
             'customer_id' => $customer->id,
@@ -381,8 +381,8 @@ class CustomerService
 
     public function getContactHistory(Customer $customer): array
     {
-        // Implementar lógica para obtener historial de contacto
-        // Por ahora retornar array vacío
+        // Implementar lï¿½gica para obtener historial de contacto
+        // Por ahora retornar array vacï¿½o
         return [];
     }
 

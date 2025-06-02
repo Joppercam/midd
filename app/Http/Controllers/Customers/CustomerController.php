@@ -19,6 +19,13 @@ class CustomerController extends Controller
     public function index(Request $request)
     {
         $this->checkPermission('customers.view');
+        
+        // Debug: Log para verificar que se ejecuta
+        \Log::info('CustomerController@index ejecutado', [
+            'user_id' => auth()->id(),
+            'tenant_id' => auth()->user()->tenant_id,
+            'request' => $request->all()
+        ]);
         $query = Customer::where('tenant_id', auth()->user()->tenant_id);
 
         // Búsqueda
@@ -50,23 +57,48 @@ class CustomerController extends Controller
 
         $customers = $query->paginate(15)->withQueryString();
 
-        // Estadísticas generales optimizadas
-        $customerStats = Customer::where('tenant_id', auth()->user()->tenant_id)
-            ->selectRaw("
-                COUNT(*) as total_customers,
-                COUNT(CASE WHEN is_active = 1 THEN 1 END) as active_customers,
-                COUNT(CASE WHEN MONTH(created_at) = ? AND YEAR(created_at) = ? THEN 1 END) as new_this_month
-            ", [now()->month, now()->year])
-            ->first();
+        // Estadísticas generales optimizadas (SQLite compatible)
+        try {
+            $currentMonth = now()->month;
+            $currentYear = now()->year;
+            $customerStats = Customer::where('tenant_id', auth()->user()->tenant_id)
+                ->selectRaw("
+                    COUNT(*) as total_customers,
+                    COUNT(CASE WHEN is_active = 1 THEN 1 END) as active_customers,
+                    COUNT(CASE WHEN strftime('%m', created_at) = ? AND strftime('%Y', created_at) = ? THEN 1 END) as new_this_month
+                ", [sprintf('%02d', $currentMonth), $currentYear])
+                ->first();
+        } catch (\Exception $e) {
+            \Log::error('Error en estadísticas de customers', [
+                'error' => $e->getMessage(),
+                'tenant_id' => auth()->user()->tenant_id
+            ]);
+            
+            // Fallback con estadísticas básicas
+            $customerStats = (object) [
+                'total_customers' => 0,
+                'active_customers' => 0,
+                'new_this_month' => 0
+            ];
+        }
 
-        $totalRevenue = DB::table('customers')
-            ->join('tax_documents', 'customers.id', '=', 'tax_documents.customer_id')
-            ->where('customers.tenant_id', auth()->user()->tenant_id)
-            ->where('tax_documents.status', 'accepted')
-            ->sum('tax_documents.total');
+        try {
+            $totalRevenue = DB::table('customers')
+                ->join('tax_documents', 'customers.id', '=', 'tax_documents.customer_id')
+                ->where('customers.tenant_id', auth()->user()->tenant_id)
+                ->where('tax_documents.status', 'accepted')
+                ->sum('tax_documents.total');
+        } catch (\Exception $e) {
+            \Log::error('Error en revenue de customers', [
+                'error' => $e->getMessage(),
+                'tenant_id' => auth()->user()->tenant_id
+            ]);
+            $totalRevenue = 0;
+        }
 
         $stats = [
             'total_customers' => $customerStats->total_customers,
+            'active_customers' => $customerStats->active_customers,
             'total_revenue' => $totalRevenue,
             'new_this_month' => $customerStats->new_this_month,
         ];

@@ -239,27 +239,12 @@
           </div>
 
           <!-- Paginación -->
-          <div v-if="products.data.length > 0" class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
+          <div v-if="products.data.length > 0 && products.last_page > 1" class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
             <div class="flex items-center justify-between">
               <div class="text-sm text-gray-700">
                 Mostrando {{ products.from }} a {{ products.to }} de {{ products.total }} resultados
               </div>
-              <div class="flex space-x-2">
-                <Link
-                  v-for="link in products.links"
-                  :key="link.label"
-                  :href="link.url"
-                  :class="[
-                    'px-3 py-2 text-sm rounded-md',
-                    link.active
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-white text-gray-700 hover:bg-gray-50',
-                    !link.url && 'opacity-50 cursor-not-allowed'
-                  ]"
-                  :disabled="!link.url"
-                  v-html="link.label"
-                />
-              </div>
+              <Pagination :links="products.links" />
             </div>
           </div>
 
@@ -290,6 +275,7 @@
 
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import Pagination from '@/Components/UI/Pagination.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, reactive } from 'vue';
 

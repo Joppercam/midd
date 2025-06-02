@@ -21,13 +21,13 @@ GitHub te mostrará instrucciones. Usa estos comandos en tu terminal:
 
 ```bash
 # Navegar al proyecto
-cd /Users/juanpablobasualdo/Desktop/CrecePyme/crecepyme
+cd /Users/juanpablobasualdo/Desktop/MIDD/midd
 
 # Agregar el remote (reemplaza TU_USUARIO con tu usuario de GitHub)
-git remote add origin https://github.com/TU_USUARIO/crecepyme-mvp.git
+git remote add origin https://github.com/TU_USUARIO/midd-mvp.git
 
 # O si usas SSH:
-git remote add origin git@github.com:TU_USUARIO/crecepyme-mvp.git
+git remote add origin git@github.com:TU_USUARIO/midd-mvp.git
 
 # Verificar el remote
 git remote -v

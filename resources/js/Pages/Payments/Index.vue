@@ -234,27 +234,14 @@
                     </div>
 
                     <!-- Paginación -->
-                    <div class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
+                    <div v-if="payments.last_page > 1" class="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center">
                                 <p class="text-sm text-gray-700">
                                     Mostrando {{ payments.from }} a {{ payments.to }} de {{ payments.total }} resultados
                                 </p>
                             </div>
-                            <div class="flex items-center space-x-2">
-                                <Link
-                                    v-for="link in payments.links"
-                                    :key="link.label"
-                                    :href="link.url"
-                                    :class="[
-                                        'px-3 py-2 text-sm rounded-md border',
-                                        link.active 
-                                            ? 'bg-indigo-50 border-indigo-500 text-indigo-600' 
-                                            : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                                    ]"
-                                    v-html="link.label"
-                                />
-                            </div>
+                            <Pagination :links="payments.links" />
                         </div>
                     </div>
                 </div>
@@ -267,6 +254,7 @@
 import { ref } from 'vue';
 import { Link, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import Pagination from '@/Components/UI/Pagination.vue';
 
 const props = defineProps({
     payments: Object,

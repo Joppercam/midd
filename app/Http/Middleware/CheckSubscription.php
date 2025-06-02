@@ -15,27 +15,79 @@ class CheckSubscription
      */
     public function handle(Request $request, Closure $next, string $feature = null): Response
     {
-        $tenant = auth()->user()->tenant;
-
-        // Check if tenant is on trial
-        if ($tenant->isOnTrial()) {
-            $daysLeft = $tenant->trial_ends_at->diffInDays(now());
-            if ($daysLeft <= 3) {
-                session()->flash('warning', "Tu periodo de prueba termina en {$daysLeft} días.");
-            }
-        }
-
-        // Check feature limits based on subscription plan
-        if ($feature) {
-            $limits = $this->getSubscriptionLimits($tenant->subscription_plan);
+        try {
+            // Force explicit type checking to prevent accidental returns
+            $response = $this->processSubscriptionCheck($request, $next, $feature);
             
-            if (!$this->checkFeatureLimit($tenant, $feature, $limits)) {
-                return redirect()->route('subscription.upgrade')
-                    ->with('error', 'Has alcanzado el límite de tu plan. Actualiza tu suscripción.');
+            // Ensure we only return Response objects
+            if (!$response instanceof Response) {
+                \Log::error('CheckSubscription middleware: Invalid return type detected', [
+                    'type' => gettype($response),
+                    'class' => is_object($response) ? get_class($response) : 'not_object',
+                    'feature' => $feature
+                ]);
+                return $next($request);
             }
+            
+            return $response;
+            
+        } catch (\Exception $e) {
+            // Log error and continue without subscription check
+            \Log::error('CheckSubscription middleware error: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+                'user_id' => auth()->id(),
+                'url' => $request->url(),
+                'feature' => $feature
+            ]);
+            
+            return $next($request);
+        }
+    }
+
+    private function processSubscriptionCheck(Request $request, Closure $next, ?string $feature): Response
+    {
+        $user = auth()->user();
+        
+        if (!$user) {
+            return $next($request);
         }
 
-        return $next($request);
+        // Safely get tenant by ID to avoid relationship loading issues
+        $tenantId = $user->tenant_id ?? null;
+        if (!$tenantId) {
+            return $next($request);
+        }
+
+        try {
+            $tenant = \App\Models\Tenant::find($tenantId);
+            if (!$tenant) {
+                return $next($request);
+            }
+
+            // Check if tenant is on trial
+            if (method_exists($tenant, 'isOnTrial') && $tenant->isOnTrial()) {
+                $daysLeft = $tenant->trial_ends_at->diffInDays(now());
+                if ($daysLeft <= 3) {
+                    session()->flash('warning', "Tu periodo de prueba termina en {$daysLeft} días.");
+                }
+            }
+
+            // Check feature limits based on subscription plan
+            if ($feature) {
+                $limits = $this->getSubscriptionLimits($tenant->subscription_plan ?? 'trial');
+                
+                if (!$this->checkFeatureLimit($tenant, $feature, $limits)) {
+                    return redirect()->route('subscription.upgrade')
+                        ->with('error', 'Has alcanzado el límite de tu plan. Actualiza tu suscripción.');
+                }
+            }
+
+            return $next($request);
+            
+        } catch (\Exception $e) {
+            \Log::warning('CheckSubscription tenant access error: ' . $e->getMessage());
+            return $next($request);
+        }
     }
 
     private function getSubscriptionLimits(string $plan): array

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Modules\HRM;
+namespace App\Modules\Hrm;
 
 use App\Core\BaseModule;
 

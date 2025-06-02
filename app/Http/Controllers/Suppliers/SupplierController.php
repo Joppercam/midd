@@ -16,12 +16,14 @@ class SupplierController extends Controller
         $this->checkPermission('suppliers.view');
         $tenantId = auth()->user()->tenant_id;
         
-        $query = Supplier::where('tenant_id', $tenantId)
-            ->withSum(['expenses as total_expenses' => function ($query) {
-                $query->whereNotIn('status', ['cancelled', 'draft']);
+        $query = Supplier::where('suppliers.tenant_id', $tenantId)
+            ->withSum(['expenses as total_expenses' => function ($query) use ($tenantId) {
+                $query->where('expenses.tenant_id', $tenantId)
+                      ->whereNotIn('status', ['cancelled', 'draft']);
             }], 'total_amount')
-            ->withSum(['expenses as pending_balance' => function ($query) {
-                $query->where('status', 'pending');
+            ->withSum(['expenses as pending_balance' => function ($query) use ($tenantId) {
+                $query->where('expenses.tenant_id', $tenantId)
+                      ->where('status', 'pending');
             }], 'balance');
 
         // Filtros
@@ -49,12 +51,16 @@ class SupplierController extends Controller
         $statistics = [
             'total_suppliers' => Supplier::where('tenant_id', $tenantId)->count(),
             'active_suppliers' => Supplier::where('tenant_id', $tenantId)->active()->count(),
-            'total_debt' => Supplier::where('tenant_id', $tenantId)
+            'total_debt' => Supplier::withoutGlobalScope('tenant')
+                ->where('suppliers.tenant_id', $tenantId)
                 ->join('expenses', 'suppliers.id', '=', 'expenses.supplier_id')
                 ->where('expenses.status', 'pending')
+                ->where('expenses.tenant_id', $tenantId)
                 ->sum('expenses.balance'),
-            'this_month_expenses' => Supplier::where('tenant_id', $tenantId)
+            'this_month_expenses' => Supplier::withoutGlobalScope('tenant')
+                ->where('suppliers.tenant_id', $tenantId)
                 ->join('expenses', 'suppliers.id', '=', 'expenses.supplier_id')
+                ->where('expenses.tenant_id', $tenantId)
                 ->whereMonth('expenses.issue_date', now()->month)
                 ->whereYear('expenses.issue_date', now()->year)
                 ->whereNotIn('expenses.status', ['cancelled', 'draft'])

@@ -1,4 +1,4 @@
-# CrecePyme
+# MIDD
 
 Plataforma SaaS B2B integral de gestión empresarial para PyMEs chilenas.
 
@@ -16,7 +16,7 @@ Plataforma SaaS B2B integral de gestión empresarial para PyMEs chilenas.
 1. **Clonar el repositorio**
 ```bash
 git clone <repo-url>
-cd crecepyme
+cd midd
 ```
 
 2. **Instalar dependencias PHP**
@@ -41,7 +41,7 @@ Editar `.env` con los datos de PostgreSQL:
 DB_CONNECTION=pgsql
 DB_HOST=127.0.0.1
 DB_PORT=5432
-DB_DATABASE=crecepyme
+DB_DATABASE=midd
 DB_USERNAME=tu_usuario
 DB_PASSWORD=tu_password
 ```
@@ -116,7 +116,7 @@ La aplicación estará disponible en http://localhost:8000
 ## 📁 Estructura del Proyecto
 
 ```
-crecepyme/
+midd/
 ├── app/
 │   ├── Models/          # Modelos Eloquent
 │   ├── Http/
@@ -146,4 +146,4 @@ php artisan test --coverage
 
 ## 📝 Licencia
 
-Proyecto privado - CrecePyme © 2024
+Proyecto privado - MIDD © 2025

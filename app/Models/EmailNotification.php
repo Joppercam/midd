@@ -92,7 +92,7 @@ class EmailNotification extends Model
         };
     }
 
-    public static function getStatistics(int $tenantId): array
+    public static function getStatistics(string $tenantId): array
     {
         $query = self::where('tenant_id', $tenantId);
         

@@ -55,7 +55,7 @@ class UserController extends Controller
 
         $roles = Role::all();
 
-        return Inertia::render('Core/Users/Index', [
+        return Inertia::render('Users/Index', [
             'users' => $users,
             'roles' => $roles,
             'filters' => $request->only(['search', 'role', 'active']),
@@ -68,7 +68,7 @@ class UserController extends Controller
 
         $roles = Role::all();
 
-        return Inertia::render('Core/Users/Create', [
+        return Inertia::render('Users/Create', [
             'roles' => $roles,
         ]);
     }
@@ -111,7 +111,7 @@ class UserController extends Controller
             ->limit(50)
             ->get();
 
-        return Inertia::render('Core/Users/Show', [
+        return Inertia::render('Users/Show', [
             'user' => $user,
             'activities' => $activities,
         ]);
@@ -125,7 +125,7 @@ class UserController extends Controller
         $user->load('roles');
         $roles = Role::all();
 
-        return Inertia::render('Core/Users/Edit', [
+        return Inertia::render('Users/Edit', [
             'user' => $user,
             'roles' => $roles,
         ]);
@@ -234,7 +234,7 @@ class UserController extends Controller
                 return explode('.', $permission->name)[0];
             });
 
-        return Inertia::render('Core/Users/Permissions', [
+        return Inertia::render('Users/Permissions', [
             'user' => $user,
             'allPermissions' => $allPermissions,
             'userPermissions' => $user->getAllPermissions()->pluck('name'),
@@ -265,7 +265,7 @@ class UserController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(50);
 
-        return Inertia::render('Core/Users/Activity', [
+        return Inertia::render('Users/Activity', [
             'user' => $user,
             'activities' => $activities,
         ]);

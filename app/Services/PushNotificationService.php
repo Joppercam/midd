@@ -311,7 +311,7 @@ class PushNotificationService
     /**
      * Create notification for backup events
      */
-    public function notifyBackupEvent(string $event, $backup, ?$schedule = null): bool
+    public function notifyBackupEvent(string $event, $backup, $schedule = null): bool
     {
         $notification = [
             'type' => 'backup_event',
@@ -476,7 +476,7 @@ class PushNotificationService
         };
     }
 
-    protected function getBackupEventMessage(string $event, $backup, ?$schedule): string
+    protected function getBackupEventMessage(string $event, $backup, $schedule): string
     {
         $type = $backup->type ?? 'completo';
         $scheduleName = $schedule?->name ?? 'manual';

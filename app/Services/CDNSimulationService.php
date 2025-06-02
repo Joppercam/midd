@@ -18,7 +18,7 @@ class CDNSimulationService
     {
         $this->config = config('performance.assets', [
             'enable_cdn_simulation' => false,
-            'cdn_base_url' => 'https://cdn.crecepyme.cl',
+            'cdn_base_url' => 'https://cdn.midd.com',
             'enable_asset_versioning' => true,
             'enable_asset_minification' => true,
         ]);

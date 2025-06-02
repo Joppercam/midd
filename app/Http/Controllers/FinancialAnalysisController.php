@@ -13,7 +13,7 @@ class FinancialAnalysisController extends Controller
 
     public function __construct(FinancialAnalysisService $analysisService)
     {
-        $this->middleware(['auth', 'tenant']);
+        $this->middleware('auth');
         $this->analysisService = $analysisService;
     }
 

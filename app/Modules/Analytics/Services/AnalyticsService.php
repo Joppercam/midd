@@ -114,7 +114,7 @@ class AnalyticsService
                 ->groupBy('month')
                 ->orderBy('month')
                 ->select(
-                    DB::raw('DATE_FORMAT(issue_date, "%Y-%m") as month'),
+                    DB::raw('strftime("%Y-%m", issue_date) as month'),
                     DB::raw('SUM(total) as revenue'),
                     DB::raw('COUNT(*) as orders')
                 );
@@ -126,7 +126,7 @@ class AnalyticsService
                 ->groupBy('year')
                 ->orderBy('year')
                 ->select(
-                    DB::raw('YEAR(issue_date) as year'),
+                    DB::raw('strftime("%Y", issue_date) as year'),
                     DB::raw('SUM(total) as revenue'),
                     DB::raw('COUNT(*) as orders')
                 );

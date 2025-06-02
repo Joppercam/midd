@@ -28,10 +28,14 @@ class User extends Authenticatable
         'password',
         'tenant_id',
         'role',
-        'permissions',
+        'custom_permissions',
         'last_login_at',
         'two_factor_enabled',
         'two_factor_secret',
+        'is_demo_user',
+        'demo_session_id',
+        'demo_expires_at',
+        'demo_extensions',
         'two_factor_recovery_codes',
         'two_factor_enabled_at',
         'force_two_factor',
@@ -59,7 +63,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'permissions' => 'array',
+            'custom_permissions' => 'array',
             'last_login_at' => 'datetime',
             'two_factor_enabled' => 'boolean',
             'two_factor_recovery_codes' => 'array',
@@ -80,7 +84,15 @@ class User extends Authenticatable
 
     public function hasPermission(string $permission): bool
     {
-        return in_array($permission, $this->permissions ?? []);
+        $permissions = $this->custom_permissions ?? [];
+        
+        // Si tiene el permiso "*", tiene acceso a todo
+        if (in_array('*', $permissions)) {
+            return true;
+        }
+        
+        // Verificar permiso específico
+        return in_array($permission, $permissions);
     }
 
     public function activities(): HasMany
